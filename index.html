@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-stone-50 p-4 max-w-sm mx-auto min-h-screen">
-    <header class="mb-6 text-center"><h1 class="font-bold text-xl">Mitti Studio Ledger</h1></header>
+    <header class="mb-6 text-center"><h1 class="font-bold text-xl text-stone-800">Mitti Studio Ledger</h1></header>
 
     <form id="tx-form" class="bg-white p-5 rounded-3xl shadow-sm border border-stone-100 space-y-4 mb-8">
         <div class="flex p-1 bg-stone-100 rounded-xl">
@@ -21,10 +21,10 @@
         <button type="submit" id="submit-btn" class="w-full bg-stone-800 text-white py-3 rounded-xl font-bold">Save Transaction</button>
     </form>
 
-    <div id="table-container" class="space-y-6"></div>
+    <div id="table-container" class="space-y-4"></div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbyVnIp2ehLRKamPJCksTGcctS2cEGr7d8V7-BWsW3VB8Fy344zaEBNbrcCAu0tO26nT_A/exec";
+        const API_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL";
         let limit = 60;
         let mode = 'Income';
         const cats = {'Income': ['Workshops', 'Custom Orders', 'Retail Sales', 'Other'], 'Expense': ['Raw Materials', 'Firing Costs', 'Studio Rent', 'Misc']};
@@ -36,7 +36,7 @@
 
         async function loadData() {
             const container = document.getElementById('table-container');
-            container.innerHTML = "<p class='text-center text-stone-400'>Loading...</p>";
+            container.innerHTML = "<p class='text-center text-stone-400 text-xs'>Loading history...</p>";
             const res = await fetch(`${API_URL}?limit=${limit}`);
             const data = await res.json();
             
@@ -47,19 +47,23 @@
                 return acc;
             }, {});
 
-            container.innerHTML = Object.keys(grouped).map(month => `
-                <div>
-                    <h3 class="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2 ml-1">${month}</h3>
-                    ${grouped[month].map(d => `
-                        <div class="bg-white p-4 mb-2 rounded-2xl border border-stone-100 flex justify-between items-center shadow-sm">
-                            <div>
-                                <p class="text-[10px] font-bold text-stone-500 uppercase">${d.date} • ${d.category}</p>
-                                <p class="text-xs font-semibold text-stone-800">${d.description || 'No comment'}</p>
+            container.innerHTML = Object.keys(grouped).map((month, index) => `
+                <details ${index === 0 ? 'open' : ''} class="group bg-white p-4 rounded-2xl border border-stone-100 shadow-sm">
+                    <summary class="text-[10px] font-bold text-stone-400 uppercase tracking-widest cursor-pointer list-none flex justify-between items-center">
+                        ${month} <span>▼</span>
+                    </summary>
+                    <div class="space-y-3 mt-4">
+                        ${grouped[month].map(d => `
+                            <div class="flex justify-between items-center border-t border-stone-100 pt-3">
+                                <div class="truncate mr-4">
+                                    <p class="text-[10px] font-bold text-stone-500 uppercase">${d.date} • ${d.category}</p>
+                                    <p class="text-xs font-semibold text-stone-800 truncate">${d.description || 'No comment'}</p>
+                                </div>
+                                <p class="text-sm font-black ${d.type === 'Income' ? 'text-emerald-600' : 'text-rose-600'}">₹${d.amount}</p>
                             </div>
-                            <p class="text-sm font-black ${d.type === 'Income' ? 'text-emerald-600' : 'text-rose-600'}">₹${d.amount}</p>
-                        </div>
-                    `).join('')}
-                </div>
+                        `).join('')}
+                    </div>
+                </details>
             `).join('') + `<button onclick="loadMore()" class="w-full py-4 text-xs font-bold text-stone-400 underline">Load more...</button>`;
         }
 
