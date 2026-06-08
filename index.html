@@ -25,7 +25,7 @@
     <div id="table-container" class="space-y-6"></div>
 
     <script>
-        const API_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL";
+        const API_URL = "https://script.google.com/macros/s/AKfycbyVnIp2ehLRKamPJCksTGcctS2cEGr7d8V7-BWsW3VB8Fy344zaEBNbrcCAu0tO26nT_A/exec";
         const cats = {
             'Income': ['Workshops', 'Custom Orders', 'Retail Sales', 'Gift Vouchers', 'Other'],
             'Expense': ['Raw Materials', 'Firing Costs', 'Studio Rent', 'Utilities', 'Marketing', 'Misc']
@@ -39,6 +39,8 @@
         document.getElementById('type-exp').onclick = () => { mode = 'Expense'; updateCats(); };
 
         async function loadData() {
+            const container = document.getElementById('table-container');
+            container.innerHTML = "<p class='text-center text-stone-400'>Loading transactions...</p>";
             const res = await fetch(API_URL);
             const data = await res.json();
             data.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -49,7 +51,7 @@
                 return acc;
             }, {});
 
-            document.getElementById('table-container').innerHTML = Object.keys(grouped).map(month => `
+            container.innerHTML = Object.keys(grouped).map(month => `
                 <div>
                     <h3 class="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2 ml-1">${month}</h3>
                     <div class="space-y-2">
@@ -62,7 +64,6 @@
                                         ${d.type === 'Income' ? '+' : '-'} ₹${d.amount}
                                     </p>
                                 </div>
-                                <button onclick="edit(${i}, ${JSON.stringify(d).replace(/"/g, '&quot;')})" class="text-[10px] bg-stone-100 px-3 py-1 rounded-lg">Edit</button>
                             </div>
                         `).join('')}
                     </div>
@@ -70,8 +71,26 @@
             `).join('');
         }
 
-        window.edit = (i, d) => { document.getElementById('edit-index').value = i; document.getElementById('date').value = d.date; document.getElementById('amount').value = d.amount; document.getElementById('description').value = d.description; mode = d.type; updateCats(); document.getElementById('category').value = d.category; document.getElementById('submit-btn').textContent = "Update Transaction"; window.scrollTo(0,0); };
-        form.onsubmit = async (e) => { e.preventDefault(); const payload = { action: document.getElementById('submit-btn').textContent === "Update Transaction" ? 'edit' : 'add', index: document.getElementById('edit-index').value, date: document.getElementById('date').value, type: mode, category: document.getElementById('category').value, description: document.getElementById('description').value, amount: document.getElementById('amount').value }; await fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); alert("Saved!"); form.reset(); document.getElementById('edit-index').value = ""; document.getElementById('submit-btn').textContent = "Save Transaction"; loadData(); };
+        form.onsubmit = async (e) => { 
+            e.preventDefault(); 
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.textContent = "Saving to Ledger...";
+            
+            const payload = { 
+                action: 'add',
+                date: document.getElementById('date').value, 
+                type: mode, 
+                category: document.getElementById('category').value, 
+                description: document.getElementById('description').value, 
+                amount: document.getElementById('amount').value 
+            }; 
+            
+            await fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); 
+            alert("Success! Transaction recorded in your ledger.");
+            form.reset(); 
+            submitBtn.textContent = "Save Transaction";
+            loadData(); 
+        };
         updateCats(); loadData();
     </script>
 </body>
