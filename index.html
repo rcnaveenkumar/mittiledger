@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mitti Studio Ledger</title>
+    <title>Mitti Ledger</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-stone-50 p-4 max-w-sm mx-auto min-h-screen">
-    <header class="mb-6 text-center"><h1 class="font-bold text-xl text-stone-800">Mitti Studio Ledger</h1></header>
+    <header class="mb-6 text-center"><h1 class="font-bold text-xl">Mitti Studio Ledger</h1></header>
 
     <form id="tx-form" class="bg-white p-5 rounded-3xl shadow-sm border border-stone-100 space-y-4 mb-8">
         <input type="hidden" id="edit-index">
@@ -22,13 +22,10 @@
         <button type="submit" id="submit-btn" class="w-full bg-stone-800 text-white py-3 rounded-xl font-bold">Save Transaction</button>
     </form>
 
-    <div class="bg-white p-4 rounded-3xl shadow-sm border border-stone-100">
-        <h2 class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">Transactions</h2>
-        <div id="table-container" class="space-y-3 max-h-96 overflow-y-auto"></div>
-    </div>
+    <div id="table-container" class="space-y-6"></div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbyVnIp2ehLRKamPJCksTGcctS2cEGr7d8V7-BWsW3VB8Fy344zaEBNbrcCAu0tO26nT_A/exec";
+        const API_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL";
         const cats = {
             'Income': ['Workshops', 'Custom Orders', 'Retail Sales', 'Gift Vouchers', 'Other'],
             'Expense': ['Raw Materials', 'Firing Costs', 'Studio Rent', 'Utilities', 'Marketing', 'Misc']
@@ -44,51 +41,37 @@
         async function loadData() {
             const res = await fetch(API_URL);
             const data = await res.json();
-            const container = document.getElementById('table-container');
-            container.innerHTML = data.map((d, i) => `
-                <div class="flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100">
-                    <div>
-                        <p class="text-[10px] text-stone-400">${d.date} • ${d.category}</p>
-                        <p class="text-xs text-stone-600">${d.description || '-'}</p>
-                        <p class="text-sm font-bold">${d.type === 'Income' ? '+' : '-'} ₹${d.amount}</p>
+            const grouped = data.reduce((acc, d) => {
+                const month = new Date(d.date).toLocaleString('default', { month: 'long', year: 'numeric' });
+                if (!acc[month]) acc[month] = [];
+                acc[month].push(d);
+                return acc;
+            }, {});
+
+            document.getElementById('table-container').innerHTML = Object.keys(grouped).reverse().map(month => `
+                <div>
+                    <h3 class="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2 ml-1">${month}</h3>
+                    <div class="space-y-2">
+                        ${grouped[month].map((d, i) => `
+                            <div class="flex justify-between items-center p-3 bg-white rounded-2xl border border-stone-100">
+                                <div>
+                                    <p class="text-[10px] text-stone-400">${d.date} • ${d.category}</p>
+                                    <p class="text-xs font-semibold text-stone-700">${d.description || ''}</p>
+                                    <p class="text-sm font-bold text-stone-900">${d.type === 'Income' ? '+' : '-'} ₹${d.amount}</p>
+                                </div>
+                                <div class="flex gap-1">
+                                    <button onclick="edit(${i}, ${JSON.stringify(d).replace(/"/g, '&quot;')})" class="text-[10px] bg-stone-100 px-3 py-1 rounded-lg">Edit</button>
+                                </div>
+                            </div>
+                        `).join('')}
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="edit(${i}, ${JSON.stringify(d).replace(/"/g, '&quot;')})" class="text-[10px] bg-stone-200 px-2 py-1 rounded-lg">Edit</button>
-                        <button onclick="deleteRow(${i})" class="text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded-lg">Delete</button>
-                    </div>
-                </div>`).join('');
+                </div>
+            `).join('');
         }
 
-        window.edit = (i, d) => {
-            document.getElementById('edit-index').value = i;
-            document.getElementById('date').value = d.date;
-            document.getElementById('amount').value = d.amount;
-            document.getElementById('description').value = d.description;
-            mode = d.type; updateCats(); document.getElementById('category').value = d.category;
-            document.getElementById('submit-btn').textContent = "Update Transaction";
-            window.scrollTo(0,0);
-        };
-
-        async function deleteRow(i) {
-            if(!confirm("Delete this?")) return;
-            await fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'delete', index: i}) });
-            loadData();
-        }
-
-        form.onsubmit = async (e) => {
-            e.preventDefault();
-            const payload = {
-                action: document.getElementById('submit-btn').textContent === "Update Transaction" ? 'edit' : 'add',
-                index: document.getElementById('edit-index').value,
-                date: document.getElementById('date').value,
-                type: mode,
-                category: document.getElementById('category').value,
-                description: document.getElementById('description').value,
-                amount: document.getElementById('amount').value
-            };
-            await fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            form.reset(); document.getElementById('edit-index').value = ""; document.getElementById('submit-btn').textContent = "Save Transaction"; loadData();
-        };
+        window.edit = (i, d) => { document.getElementById('edit-index').value = i; document.getElementById('date').value = d.date; document.getElementById('amount').value = d.amount; document.getElementById('description').value = d.description; mode = d.type; updateCats(); document.getElementById('category').value = d.category; document.getElementById('submit-btn').textContent = "Update Transaction"; window.scrollTo(0,0); };
+        
+        form.onsubmit = async (e) => { e.preventDefault(); const payload = { action: document.getElementById('submit-btn').textContent === "Update Transaction" ? 'edit' : 'add', index: document.getElementById('edit-index').value, date: document.getElementById('date').value, type: mode, category: document.getElementById('category').value, description: document.getElementById('description').value, amount: document.getElementById('amount').value }; await fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); form.reset(); document.getElementById('edit-index').value = ""; document.getElementById('submit-btn').textContent = "Save Transaction"; loadData(); };
         updateCats(); loadData();
     </script>
 </body>
