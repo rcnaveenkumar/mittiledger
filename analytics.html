@@ -1,61 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mitti Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-stone-50 p-4">
-    <a href="index.html">← Back</a>
-    <select id="time-view" class="w-full p-3 my-4 rounded-xl border">
+<body class="bg-stone-50 p-4 max-w-sm mx-auto min-h-screen">
+    <div class="flex items-center justify-between mb-6">
+        <a href="index.html" class="text-xs font-bold text-stone-400 uppercase tracking-widest">← Back</a>
+        <button id="back-btn" class="hidden text-xs font-bold text-stone-800 bg-stone-200 px-3 py-1 rounded-lg">Reset View</button>
+    </div>
+
+    <select id="time-view" class="w-full p-3 mb-6 rounded-xl border border-stone-200 font-bold text-sm bg-white shadow-sm">
         <option value="Month">Month-Year</option>
         <option value="Quarter">Quarter-Year</option>
+        <option value="Year">Year</option>
     </select>
-    <div class="bg-white p-6 rounded-3xl h-[350px]"><canvas id="mainChart"></canvas></div>
+
+    <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 mb-6">
+        <div style="height: 300px;"><canvas id="mainChart"></canvas></div>
+    </div>
+    <div id="custom-legend" class="mt-4 space-y-2"></div>
 
     <script>
-        let rawData = [];
         const ctx = document.getElementById('mainChart').getContext('2d');
-        let chart;
+        let chart, globalData = [];
+        const API_URL = "https://script.google.com/macros/s/AKfycbyVnIp2ehLRKamPJCksTGcctS2cEGr7d8V7-BWsW3VB8Fy344zaEBNbrcCAu0tO26nT_A/exec";
 
         async function init() {
-            const res = await fetch("YOUR_SCRIPT_URL");
-            rawData = await res.json();
-            drawChart();
+            const res = await fetch(API_URL);
+            globalData = await res.json();
+            drawMainChart();
         }
 
-        function drawChart() {
-            // Group rawData by month and calculate Income, Expense, Profit
-            const labels = ['Jan-26', 'Feb-26', 'Mar-26']; 
-            const income = [45000, 32000, 52000];
-            const expense = [22000, 25000, 28000];
-            const profit = income.map((v, i) => v - expense[i]);
+        function drawMainChart() {
+            document.getElementById('back-btn').classList.add('hidden');
+            document.getElementById('custom-legend').innerHTML = '';
+            const view = document.getElementById('time-view').value;
 
+            const grouped = globalData.reduce((acc, d) => {
+                const date = new Date(d.date);
+                let key = d.date.substring(0, 7); // Default Month
+                if (view === 'Quarter') key = `${date.getFullYear()}-Q${Math.floor(date.getMonth()/3)+1}`;
+                if (view === 'Year') key = `${date.getFullYear()}`;
+                
+                if (!acc[key]) acc[key] = { Income: 0, Expense: 0 };
+                if (d.type === 'Income') acc[key].Income += Number(d.amount);
+                else acc[key].Expense += Number(d.amount);
+                return acc;
+            }, {});
+
+            const labels = Object.keys(grouped).sort();
+            if (chart) chart.destroy();
             chart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Income', data: income, backgroundColor: '#10b981' },
-                        { label: 'Expense', data: expense, backgroundColor: '#f43f5e' },
-                        { label: 'Profit', data: profit, backgroundColor: profit.map(v => v >= 0 ? '#3b82f6' : '#9333ea') }
+                        { label: 'Income', data: labels.map(m => grouped[m].Income), backgroundColor: '#10b981' },
+                        { label: 'Expense', data: labels.map(m => grouped[m].Expense), backgroundColor: '#f43f5e' },
+                        { label: 'Profit', data: labels.map(m => grouped[m].Income - grouped[m].Expense), backgroundColor: (c) => c.raw >= 0 ? '#3b82f6' : '#9333ea' }
                     ]
                 },
                 options: {
-                    onClick: (e, el) => { if(el.length && el[0].datasetIndex < 2) drillDown(); }
+                    responsive: true, maintainAspectRatio: false,
+                    onClick: (e, el) => { if(el.length && el[0].datasetIndex < 2) drillDown(chart.data.labels[el[0].index], chart.data.datasets[el[0].datasetIndex].label, view); }
                 }
             });
         }
 
-        function drillDown() {
+        function drillDown(periodKey, type, view) {
+            document.getElementById('back-btn').classList.remove('hidden');
+            const filtered = globalData.filter(d => {
+                const date = new Date(d.date);
+                let dKey = d.date.substring(0, 7);
+                if (view === 'Quarter') dKey = `${date.getFullYear()}-Q${Math.floor(date.getMonth()/3)+1}`;
+                if (view === 'Year') dKey = `${date.getFullYear()}`;
+                return dKey === periodKey && d.type === type;
+            });
+
+            const cats = filtered.reduce((acc, d) => { acc[d.category] = (acc[d.category] || 0) + Number(d.amount); return acc; }, {});
+
             chart.destroy();
             chart = new Chart(ctx, {
                 type: 'doughnut',
-                data: {
-                    labels: ['Pottery', 'Embroidery'],
-                    datasets: [{ data: [15000, 10000], backgroundColor: ['#fbbf24', '#818cf8'] }]
-                }
+                data: { labels: Object.keys(cats), datasets: [{ data: Object.values(cats), backgroundColor: ['#fbbf24', '#818cf8', '#f87171', '#34d399', '#a78bfa'] }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const legend = document.getElementById('custom-legend');
+            legend.innerHTML = `<h3 class="text-xs font-bold text-stone-500 mb-2">${type} Breakdown (${periodKey})</h3>`;
+            Object.entries(cats).forEach(([label, val]) => {
+                legend.innerHTML += `<div class="flex justify-between bg-white p-3 rounded-lg border text-sm font-semibold"><span>${label}</span><span>₹${val.toLocaleString()}</span></div>`;
             });
         }
+
+        document.getElementById('time-view').onchange = drawMainChart;
+        document.getElementById('back-btn').onclick = drawMainChart;
         init();
     </script>
 </body>
