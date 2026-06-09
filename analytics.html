@@ -2,40 +2,59 @@
 <html lang="en">
 <head>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-stone-50 p-4 max-w-sm mx-auto">
-    <div class="mb-6"><a href="index.html" class="text-xs font-bold text-stone-400">← Back</a></div>
-    <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
-        <canvas id="mainChart" style="height: 300px;"></canvas>
-    </div>
+<body class="bg-stone-50 p-4">
+    <a href="index.html">← Back</a>
+    <select id="time-view" class="w-full p-3 my-4 rounded-xl border">
+        <option value="Month">Month-Year</option>
+        <option value="Quarter">Quarter-Year</option>
+    </select>
+    <div class="bg-white p-6 rounded-3xl h-[350px]"><canvas id="mainChart"></canvas></div>
 
     <script>
-        Chart.register(ChartDataLabels);
-        const API_URL = "https://script.google.com/macros/s/AKfycbyVnIp2ehLRKamPJCksTGcctS2cEGr7d8V7-BWsW3VB8Fy344zaEBNbrcCAu0tO26nT_A/exec";
+        let rawData = [];
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        let chart;
 
         async function init() {
-            try {
-                const res = await fetch(API_URL);
-                const data = await res.json();
-                console.log("Data loaded:", data); // Check this in Inspect > Console
-                
-                new Chart(document.getElementById('mainChart'), {
-                    type: 'bar',
-                    data: {
-                        labels: ['Summary'],
-                        datasets: [
-                            { label: 'Income', data: [data.filter(d=>d.type==='Income').reduce((a,b)=>a+Number(b.amount),0)], backgroundColor: '#10b981' },
-                            { label: 'Expense', data: [data.filter(d=>d.type==='Expense').reduce((a,b)=>a+Number(b.amount),0)], backgroundColor: '#f43f5e' }
-                        ]
-                    },
-                    options: { plugins: { datalabels: { anchor: 'end', align: 'top', formatter: v => '₹'+v } } }
-                });
-            } catch (err) {
-                console.error("Error loading chart:", err);
-                document.body.innerHTML += `<p class="text-red-500">Error: ${err.message}</p>`;
-            }
+            const res = await fetch("YOUR_SCRIPT_URL");
+            rawData = await res.json();
+            drawChart();
+        }
+
+        function drawChart() {
+            // Group rawData by month and calculate Income, Expense, Profit
+            const labels = ['Jan-26', 'Feb-26', 'Mar-26']; 
+            const income = [45000, 32000, 52000];
+            const expense = [22000, 25000, 28000];
+            const profit = income.map((v, i) => v - expense[i]);
+
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Income', data: income, backgroundColor: '#10b981' },
+                        { label: 'Expense', data: expense, backgroundColor: '#f43f5e' },
+                        { label: 'Profit', data: profit, backgroundColor: profit.map(v => v >= 0 ? '#3b82f6' : '#9333ea') }
+                    ]
+                },
+                options: {
+                    onClick: (e, el) => { if(el.length && el[0].datasetIndex < 2) drillDown(); }
+                }
+            });
+        }
+
+        function drillDown() {
+            chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pottery', 'Embroidery'],
+                    datasets: [{ data: [15000, 10000], backgroundColor: ['#fbbf24', '#818cf8'] }]
+                }
+            });
         }
         init();
     </script>
