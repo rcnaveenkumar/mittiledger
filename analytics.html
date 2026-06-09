@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mitti Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+</head>
+<body class="bg-stone-50 p-4 max-w-sm mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <a href="index.html" class="text-xs font-bold text-stone-400">← Back</a>
+        <h1 class="font-bold text-xl text-stone-800">Analytics</h1>
+    </div>
+
+    <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
+        <div style="height: 350px;"><canvas id="mainChart"></canvas></div>
+    </div>
+
+    <script>
+        Chart.register(ChartDataLabels);
+        const API_URL = "YOUR_SCRIPT_URL_HERE"; 
+
+        async function init() {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            
+            // Logic: Process data by Month
+            // Example structure: labels=['Jan-26'], income=[...], expense=[...], profit=[...]
+            
+            new Chart(document.getElementById('mainChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Jan-26', 'Feb-26', 'Mar-26'],
+                    datasets: [
+                        { label: 'Income', data: [45000, 32000, 52000], backgroundColor: '#10b981' },
+                        { label: 'Expense', data: [22000, 25000, 28000], backgroundColor: '#f43f5e' },
+                        { label: 'Profit', data: [23000, 7000, 24000], backgroundColor: (ctx) => ctx.raw >= 0 ? '#3b82f6' : '#9333ea' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        datalabels: { anchor: 'end', align: 'top', formatter: v => '₹'+v.toLocaleString() }
+                    }
+                }
+            });
+        }
+        init();
+    </script>
+</body>
+</html>
