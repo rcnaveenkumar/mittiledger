@@ -6,6 +6,15 @@
     <title>Mitti Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chart-container-outer { position: relative; height: 300px; width: 100%; }
+        /* Main view: scrollable */
+        .scrollable-area { overflow-x: auto; overflow-y: hidden; width: 100%; }
+        .scrollable-content { height: 300px; min-width: 650px; }
+        /* Drill-down view: static */
+        .static-mode { overflow: hidden !important; }
+        .static-content { height: 300px; width: 100%; min-width: 100% !important; }
+    </style>
 </head>
 <body class="bg-stone-50 p-4 max-w-sm mx-auto min-h-screen">
     <div class="flex items-center justify-between mb-6">
@@ -19,9 +28,14 @@
         <option value="Year">Year</option>
     </select>
 
-    <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 mb-6">
-        <div style="height: 300px;"><canvas id="mainChart"></canvas></div>
+    <div class="bg-white p-4 rounded-3xl shadow-sm border border-stone-100">
+        <div id="chart-wrapper" class="chart-container-outer scrollable-area">
+            <div id="chart-inner" class="scrollable-content">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </div>
     </div>
+    
     <div id="custom-legend" class="mt-4 space-y-2"></div>
 
     <script>
@@ -38,11 +52,19 @@
         function drawMainChart() {
             document.getElementById('back-btn').classList.add('hidden');
             document.getElementById('custom-legend').innerHTML = '';
-            const view = document.getElementById('time-view').value;
+            
+            // Apply scrollable layout
+            const wrapper = document.getElementById('chart-wrapper');
+            const inner = document.getElementById('chart-inner');
+            wrapper.className = "chart-container-outer scrollable-area";
+            inner.className = "scrollable-content";
+            // Explicitly ensure it starts at the left
+            wrapper.scrollLeft = 0; 
 
+            const view = document.getElementById('time-view').value;
             const grouped = globalData.reduce((acc, d) => {
                 const date = new Date(d.date);
-                let key = d.date.substring(0, 7); // Default Month
+                let key = d.date.substring(0, 7);
                 if (view === 'Quarter') key = `${date.getFullYear()}-Q${Math.floor(date.getMonth()/3)+1}`;
                 if (view === 'Year') key = `${date.getFullYear()}`;
                 
@@ -64,15 +86,19 @@
                         { label: 'Profit', data: labels.map(m => grouped[m].Income - grouped[m].Expense), backgroundColor: (c) => c.raw >= 0 ? '#3b82f6' : '#9333ea' }
                     ]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    onClick: (e, el) => { if(el.length && el[0].datasetIndex < 2) drillDown(chart.data.labels[el[0].index], chart.data.datasets[el[0].datasetIndex].label, view); }
-                }
+                options: { responsive: true, maintainAspectRatio: false, onClick: (e, el) => { if(el.length && el[0].datasetIndex < 2) drillDown(chart.data.labels[el[0].index], chart.data.datasets[el[0].datasetIndex].label, view); } }
             });
         }
 
         function drillDown(periodKey, type, view) {
             document.getElementById('back-btn').classList.remove('hidden');
+            
+            // Apply static layout
+            const wrapper = document.getElementById('chart-wrapper');
+            const inner = document.getElementById('chart-inner');
+            wrapper.className = "chart-container-outer static-mode";
+            inner.className = "static-content";
+            
             const filtered = globalData.filter(d => {
                 const date = new Date(d.date);
                 let dKey = d.date.substring(0, 7);
