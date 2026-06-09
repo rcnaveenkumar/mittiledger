@@ -45,7 +45,6 @@
             const container = document.getElementById('table-container');
             const res = await fetch(`${API_URL}?limit=${limit}`);
             const data = await res.json();
-            // Sort data: newest first
             data.sort((a, b) => new Date(b.date) - new Date(a.date));
             
             const grouped = data.reduce((acc, d, i) => {
@@ -93,10 +92,28 @@
 
         document.getElementById('tx-form').onsubmit = async (e) => { 
             e.preventDefault(); 
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Processing...";
+            submitBtn.classList.add('opacity-50');
+
             const index = document.getElementById('edit-index').value;
             const payload = { action: index ? 'edit' : 'add', index, date: document.getElementById('date').value, type: mode, category: document.getElementById('category').value, description: document.getElementById('description').value, amount: document.getElementById('amount').value };
-            await fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); 
-            alert("Success!"); document.getElementById('tx-form').reset(); document.getElementById('edit-index').value = ""; document.getElementById('submit-btn').textContent = "Save Transaction"; loadData(); 
+            
+            try {
+                await fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); 
+                alert("Success!"); 
+                document.getElementById('tx-form').reset(); 
+                document.getElementById('edit-index').value = ""; 
+                document.getElementById('submit-btn').textContent = "Save Transaction"; 
+                loadData(); 
+            } catch(err) {
+                alert("Failed to save. Please try again.");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = index ? "Update Transaction" : "Save Transaction";
+                submitBtn.classList.remove('opacity-50');
+            }
         };
         updateCats(); loadData();
     </script>
