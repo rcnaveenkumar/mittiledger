@@ -8,10 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .chart-container-outer { position: relative; height: 300px; width: 100%; }
-        /* Scrollable main view */
         .scrollable-area { overflow-x: auto; overflow-y: hidden; width: 100%; }
         .scrollable-content { height: 300px; min-width: 650px; }
-        /* Static drill-down view */
         .static-mode { overflow: hidden !important; }
         .static-content { height: 300px; width: 100%; min-width: 100% !important; }
     </style>
@@ -43,8 +41,17 @@
         let chart, globalData = [];
         const API_URL = "https://script.google.com/macros/s/AKfycbyVnIp2ehLRKamPJCksTGcctS2cEGr7d8V7-BWsW3VB8Fy344zaEBNbrcCAu0tO26nT_A/exec";
 
+        async function checkAuth(res) {
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.indexOf("text/html") !== -1) {
+                window.location.href = API_URL; return false;
+            }
+            return true;
+        }
+
         async function init() {
             const res = await fetch(API_URL);
+            if (!(await checkAuth(res))) return;
             globalData = await res.json();
             drawMainChart();
         }
@@ -52,8 +59,6 @@
         function drawMainChart() {
             document.getElementById('back-btn').classList.add('hidden');
             document.getElementById('custom-legend').innerHTML = '';
-            
-            // Apply scrollable layout
             const wrapper = document.getElementById('chart-wrapper');
             const inner = document.getElementById('chart-inner');
             wrapper.className = "chart-container-outer scrollable-area";
@@ -66,7 +71,6 @@
                 let key = d.date.substring(0, 7);
                 if (view === 'Quarter') key = `${date.getFullYear()}-Q${Math.floor(date.getMonth()/3)+1}`;
                 if (view === 'Year') key = `${date.getFullYear()}`;
-                
                 if (!acc[key]) acc[key] = { Income: 0, Expense: 0 };
                 if (d.type === 'Income') acc[key].Income += Number(d.amount);
                 else acc[key].Expense += Number(d.amount);
@@ -74,26 +78,20 @@
             }, {});
 
             const labels = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-            
             if (chart) chart.destroy();
             chart = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Income', data: labels.map(m => grouped[m].Income), backgroundColor: '#10b981' },
-                        { label: 'Expense', data: labels.map(m => grouped[m].Expense), backgroundColor: '#f43f5e' },
-                        { label: 'Profit', data: labels.map(m => grouped[m].Income - grouped[m].Expense), backgroundColor: (c) => c.raw >= 0 ? '#3b82f6' : '#9333ea' }
-                    ]
-                },
+                data: { labels: labels, datasets: [
+                    { label: 'Income', data: labels.map(m => grouped[m].Income), backgroundColor: '#10b981' },
+                    { label: 'Expense', data: labels.map(m => grouped[m].Expense), backgroundColor: '#f43f5e' },
+                    { label: 'Profit', data: labels.map(m => grouped[m].Income - grouped[m].Expense), backgroundColor: (c) => c.raw >= 0 ? '#3b82f6' : '#9333ea' }
+                ]},
                 options: { responsive: true, maintainAspectRatio: false, onClick: (e, el) => { if(el.length && el[0].datasetIndex < 2) drillDown(chart.data.labels[el[0].index], chart.data.datasets[el[0].datasetIndex].label, view); } }
             });
         }
 
         function drillDown(periodKey, type, view) {
             document.getElementById('back-btn').classList.remove('hidden');
-            
-            // Apply static layout
             const wrapper = document.getElementById('chart-wrapper');
             const inner = document.getElementById('chart-inner');
             wrapper.className = "chart-container-outer static-mode";
