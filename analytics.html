@@ -44,12 +44,19 @@
     <script>
         const ctx = document.getElementById('mainChart').getContext('2d');
         let chart, globalData = [];
-        const API_URL = "https://script.google.com/macros/s/AKfycbwj1DcGfxnnJvzbRoFRflWzy_INBD5q9U6N41OQbU7r71T64ZBgZXwHPU-5glc1g-3S4g/exec";
+        const API_URL = "YOUR_DEPLOYMENT_URL_HERE";
 
         async function init() {
-            // Updated load to handle JSONP callback
+            const token = sessionStorage.getItem("ledger_token");
+            if (!token) {
+                alert("Please login on the main ledger page first.");
+                window.location.href = "index.html";
+                return;
+            }
+            
+            // JSONP: Inject script tag with token
             const s = document.createElement('script');
-            s.src = `${API_URL}?callback=processInit`;
+            s.src = `${API_URL}?token=${token}&callback=processInit`;
             document.body.appendChild(s);
         }
 
