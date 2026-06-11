@@ -25,31 +25,48 @@
             <input type="number" id="amount" placeholder="Amount (₹)" required class="w-full p-3 bg-stone-50 rounded-xl border border-stone-200 font-bold">
             <button type="submit" id="submit-btn" class="w-full bg-stone-800 text-white py-3 rounded-xl font-bold">Save Transaction</button>
         </form>
+
         <div id="table-container" class="md:col-span-2 space-y-4"></div>
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbwj1DcGfxnnJvzbRoFRflWzy_INBD5q9U6N41OQbU7r71T64ZBgZXwHPU-5glc1g-3S4g/exec";
-        let mode = 'Income';
-        const cats = { 'Income': ['Workshops', 'Sales - Pottery', 'Sales - Embroidery', 'Sales - Hampers', 'Sales - Art', 'Misc/Others'], 'Expense': ['Pottery Raw Materials', 'Other Raw Materials', 'Firing Charges', 'Packaging', 'Shipping Fees', 'Marketing', 'Vendor - Payment', 'Misc/Others'] };
+        const API_URL = "https://script.google.com/macros/s/AKfycbyVnIp2ehLRKamPJCksTGcctS2cEGr7d8V7-BWsW3VB8Fy344zaEBNbrcCAu0tO26nT_A/exec";
+        let limit = 60; let mode = 'Income';
+        const cats = {
+            'Income': ['Workshops', 'Sales - Pottery', 'Sales - Embroidery', 'Sales - Hampers', 'Sales - Art', 'Misc/Others'],
+            'Expense': ['Pottery Raw Materials', 'Other Raw Materials', 'Firing Charges', 'Packaging', 'Shipping Fees', 'Marketing', 'Vendor - Payment', 'Misc/Others']
+        };
         
+        document.getElementById('date').valueAsDate = new Date();
         function updateCats() { document.getElementById('category').innerHTML = cats[mode].map(c => `<option value="${c}">${c}</option>`).join(''); }
-        function loadData() { const s = document.createElement('script'); s.src = `${API_URL}?callback=renderTable`; document.body.appendChild(s); }
         
-        function renderTable(data) {
+        document.getElementById('type-inc').onclick = () => { mode = 'Income'; updateCats(); document.getElementById('type-inc').className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white shadow-sm"; document.getElementById('type-exp').className = "flex-1 py-2 text-xs font-bold text-stone-500"; };
+        document.getElementById('type-exp').onclick = () => { mode = 'Expense'; updateCats(); document.getElementById('type-exp').className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white shadow-sm"; document.getElementById('type-inc').className = "flex-1 py-2 text-xs font-bold text-stone-500"; };
+
+        async function loadData() {
+            // Note: Removed 'mode: no-cors' because your Code.gs now handles CORS headers
+            const res = await fetch(`${API_URL}?limit=${limit}`);
+            const data = await res.json();
             data.sort((a, b) => new Date(b.date) - new Date(a.date));
             const container = document.getElementById('table-container');
             const grouped = data.reduce((acc, d, i) => { const m = new Date(d.date).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!acc[m]) acc[m] = []; acc[m].push({ ...d, originalIndex: i }); return acc; }, {});
-            container.innerHTML = Object.keys(grouped).map((m, i) => `<details ${i === 0 ? 'open' : ''} class="group bg-white p-4 rounded-2xl border border-stone-100 shadow-sm"><summary class="text-[10px] font-bold text-stone-400 uppercase tracking-widest cursor-pointer">${m}</summary><div class="space-y-3 mt-4">${grouped[m].map(d => `<div class="flex justify-between items-center border-t pt-3"><div><p class="text-[10px] font-bold text-stone-500 uppercase">${d.date} • ${d.category}</p><p class="text-xs font-semibold">${d.description || 'No comment'}</p></div><div class="flex items-center gap-3"><p class="text-sm font-black ${d.type === 'Income' ? 'text-emerald-600' : 'text-rose-600'}">₹${d.amount}</p><button onclick='editTransaction(${JSON.stringify(d)})' class="text-[10px] bg-stone-100 px-2 py-1 rounded">Edit</button></div></div>`).join('')}</div></details>`).join('');
+            container.innerHTML = Object.keys(grouped).map((m, i) => `<details ${i === 0 ? 'open' : ''} class="group bg-white p-4 rounded-2xl border border-stone-100 shadow-sm"><summary class="text-[10px] font-bold text-stone-400 uppercase tracking-widest cursor-pointer">${m}</summary><div class="space-y-3 mt-4">${grouped[m].map(d => `<div class="flex justify-between items-center border-t pt-3"><div><p class="text-[10px] font-bold text-stone-500 uppercase">${d.date} • ${d.category}</p><p class="text-xs font-semibold">${d.description || 'No comment'}</p></div><div class="flex items-center gap-3"><p class="text-sm font-black ${d.type === 'Income' ? 'text-emerald-600' : 'text-rose-600'}">₹${d.amount}</p><button onclick='editTransaction(${JSON.stringify(d)})' class="text-[10px] bg-stone-100 px-2 py-1 rounded">Edit</button></div></div>`).join('')}</div></details>`).join('') + `<button onclick="loadMore()" class="w-full py-4 text-xs font-bold text-stone-400 underline">Load more...</button>`;
         }
 
+        function loadMore() { limit += 60; loadData(); }
+        
+        function editTransaction(d) { document.getElementById('edit-index').value = d.originalIndex; document.getElementById('date').value = d.date; document.getElementById('description').value = d.description; document.getElementById('amount').value = d.amount; mode = d.type; updateCats(); document.getElementById('category').value = d.category; document.getElementById('submit-btn').textContent = "Update Transaction"; window.scrollTo(0, 0); }
+        
         document.getElementById('tx-form').onsubmit = async (e) => { 
             e.preventDefault(); 
-            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: document.getElementById('edit-index').value ? 'edit' : 'add', index: document.getElementById('edit-index').value, date: document.getElementById('date').value, type: mode, category: document.getElementById('category').value, description: document.getElementById('description').value, amount: document.getElementById('amount').value }) }); 
+            // Removed mode: no-cors as your Code.gs now explicitly handles OPTIONS/POST requests
+            await fetch(API_URL, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: document.getElementById('edit-index').value ? 'edit' : 'add', index: document.getElementById('edit-index').value, date: document.getElementById('date').value, type: mode, category: document.getElementById('category').value, description: document.getElementById('description').value, amount: document.getElementById('amount').value }) 
+            }); 
             alert("Success!"); loadData(); 
         };
-        document.getElementById('type-inc').onclick = () => { mode = 'Income'; updateCats(); };
-        document.getElementById('type-exp').onclick = () => { mode = 'Expense'; updateCats(); };
         updateCats(); loadData();
     </script>
 </body>
