@@ -45,7 +45,21 @@
         let mode = 'Income';
         const cats = { 'Income': ['Workshops', 'Sales - Pottery', 'Sales - Embroidery', 'Sales - Hampers', 'Sales - Art', 'Misc/Others'], 'Expense': ['Pottery Raw Materials', 'Other Raw Materials', 'Firing Charges', 'Packaging', 'Shipping Fees', 'Marketing', 'Vendor - Payment', 'Misc/Others'] };
         
-        // Password Toggle
+        // --- UI TOGGLE LOGIC ---
+        function updateButtonUI() {
+            const incBtn = document.getElementById('type-inc');
+            const expBtn = document.getElementById('type-exp');
+            if (mode === 'Income') {
+                incBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white shadow-sm";
+                expBtn.className = "flex-1 py-2 text-xs font-bold text-stone-500";
+            } else {
+                expBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white shadow-sm";
+                incBtn.className = "flex-1 py-2 text-xs font-bold text-stone-500";
+            }
+            updateCats();
+        }
+
+        // --- PASSWORD TOGGLE ---
         const passInput = document.getElementById('password-input');
         const toggleBtn = document.getElementById('toggle-pass');
         toggleBtn.onclick = () => {
@@ -54,7 +68,7 @@
             toggleBtn.textContent = isPass ? 'HIDE' : 'SHOW';
         };
 
-        // Auth Logic
+        // --- AUTH LOGIC ---
         let token = sessionStorage.getItem("ledger_token");
         if (token) document.getElementById('login-overlay').classList.add('hidden');
 
@@ -81,20 +95,32 @@
             }
         }
 
-        function editTransaction(d) { document.getElementById('edit-index').value = d.originalIndex; document.getElementById('date').value = d.date; document.getElementById('description').value = d.description; document.getElementById('amount').value = d.amount; mode = d.type; updateCats(); document.getElementById('category').value = d.category; document.getElementById('submit-btn').textContent = "Update Transaction"; window.scrollTo(0, 0); }
+        function editTransaction(d) { 
+            document.getElementById('edit-index').value = d.originalIndex; 
+            document.getElementById('date').value = d.date; 
+            document.getElementById('description').value = d.description; 
+            document.getElementById('amount').value = d.amount; 
+            mode = d.type; 
+            updateButtonUI(); 
+            document.getElementById('category').value = d.category; 
+            document.getElementById('submit-btn').textContent = "Update Transaction"; 
+            window.scrollTo(0, 0); 
+        }
         
         document.getElementById('tx-form').onsubmit = async (e) => { 
             e.preventDefault(); 
             const submitBtn = document.getElementById('submit-btn');
             submitBtn.textContent = "Saving...";
             const payload = { token: token, action: document.getElementById('edit-index').value ? 'edit' : 'add', index: document.getElementById('edit-index').value, date: document.getElementById('date').value, type: mode, category: document.getElementById('category').value, description: document.getElementById('description').value, amount: document.getElementById('amount').value };
-            await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }); 
-            alert("Success!"); submitBtn.textContent = "Save Transaction"; document.getElementById('tx-form').reset(); loadData(); 
+            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
+            alert("Success!"); submitBtn.textContent = "Save Transaction"; document.getElementById('tx-form').reset(); document.getElementById('edit-index').value = ""; loadData(); 
         };
-        document.getElementById('type-inc').onclick = () => { mode = 'Income'; updateCats(); };
-        document.getElementById('type-exp').onclick = () => { mode = 'Expense'; updateCats(); };
+        
+        document.getElementById('type-inc').onclick = () => { mode = 'Income'; updateButtonUI(); };
+        document.getElementById('type-exp').onclick = () => { mode = 'Expense'; updateButtonUI(); };
+        
         document.getElementById('date').valueAsDate = new Date();
-        updateCats(); if(token) loadData();
+        updateButtonUI(); if(token) loadData();
     </script>
 </body>
 </html>
