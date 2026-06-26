@@ -7,32 +7,31 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Mobile height is 300px, Desktop increased to 450px */
         .chart-container-outer { position: relative; height: 300px; width: 100%; }
         @media (min-width: 768px) { .chart-container-outer { height: 450px; } }
-        
         .scrollable-area { overflow-x: auto; overflow-y: hidden; width: 100%; padding-bottom: 20px; }
         .scrollable-content { height: 100%; min-width: 800px; }
-        
         .static-mode { overflow: hidden !important; }
         .static-content { height: 100%; width: 100%; min-width: 100% !important; }
     </style>
 </head>
 <body class="bg-stone-50 p-4 mx-auto min-h-screen max-w-sm md:max-w-5xl">
-    
+
     <div class="flex items-center justify-between mb-6">
         <a href="index.html" class="text-xs font-bold text-stone-400 uppercase tracking-widest">← Back</a>
         <button id="back-btn" class="hidden text-xs font-bold text-stone-800 bg-stone-200 px-3 py-1 rounded-lg">Reset View</button>
     </div>
 
-    <div class="md:grid md:grid-cols-3 md:gap-8">
+    <div id="loading-msg" class="p-8 text-center text-stone-400 font-bold text-sm">Loading analytics...</div>
+    <div id="error-msg" class="hidden p-8 text-center text-rose-500 font-bold text-sm">Failed to load data. Please go back and log in again.</div>
+
+    <div id="main-content" class="hidden md:grid md:grid-cols-3 md:gap-8">
         <div class="md:col-span-2">
             <select id="time-view" class="w-full p-3 mb-6 rounded-xl border border-stone-200 font-bold text-sm bg-white shadow-sm">
                 <option value="Month">Month-Year</option>
                 <option value="Quarter">Quarter-Year</option>
                 <option value="Year">Year</option>
             </select>
-
             <div class="bg-white p-4 rounded-3xl shadow-sm border border-stone-100">
                 <div id="chart-wrapper" class="chart-container-outer scrollable-area">
                     <div id="chart-inner" class="scrollable-content">
@@ -41,48 +40,68 @@
                 </div>
             </div>
         </div>
-        
         <div id="custom-legend" class="mt-8 md:mt-0 space-y-2"></div>
     </div>
 
     <script>
-        const ctx = document.getElementById('mainChart').getContext('2d');
-        let chart, globalData = [];
-        // Replace with your actual deployment URL
         const API_URL = "https://script.google.com/macros/s/AKfycbwj1DcGfxnnJvzbRoFRflWzy_INBD5q9U6N41OQbU7r71T64ZBgZXwHPU-5glc1g-3S4g/exec";
+        let chart, globalData = [];
 
-        async function init() {
+        function init() {
             const token = sessionStorage.getItem("ledger_token");
             if (!token) {
                 window.location.href = "index.html";
                 return;
             }
-            const s = document.createElement('script');
-            s.src = `${API_URL}?token=${token}&callback=processInit`;
-            document.body.appendChild(s);
-        }
 
-        function processInit(data) {
-            globalData = data;
-            drawMainChart();
+            // Remove stale JSONP script if any
+            const old = document.getElementById('analytics-jsonp');
+            if (old) old.remove();
+
+            // JSONP callback — must be global
+            window.analyticsCallback = function(data) {
+                delete window.analyticsCallback;
+
+                if (!Array.isArray(data)) {
+                    document.getElementById('loading-msg').classList.add('hidden');
+                    document.getElementById('error-msg').classList.remove('hidden');
+                    return;
+                }
+
+                globalData = data;
+                document.getElementById('loading-msg').classList.add('hidden');
+                document.getElementById('main-content').classList.remove('hidden');
+                document.getElementById('main-content').classList.add('block', 'md:grid');
+                drawMainChart();
+            };
+
+            const script = document.createElement('script');
+            script.id = 'analytics-jsonp';
+            script.onerror = () => {
+                document.getElementById('loading-msg').classList.add('hidden');
+                document.getElementById('error-msg').classList.remove('hidden');
+            };
+            script.src = `${API_URL}?token=${encodeURIComponent(token)}&callback=analyticsCallback`;
+            document.body.appendChild(script);
         }
 
         function drawMainChart() {
             document.getElementById('back-btn').classList.add('hidden');
             document.getElementById('custom-legend').innerHTML = '';
-            
+
             const wrapper = document.getElementById('chart-wrapper');
             const inner = document.getElementById('chart-inner');
             wrapper.className = "chart-container-outer scrollable-area";
             inner.className = "scrollable-content";
-            
+
             const view = document.getElementById('time-view').value;
+
             const grouped = globalData.reduce((acc, d) => {
                 const date = new Date(d.date);
-                let key = d.date.substring(0, 7);
-                if (view === 'Quarter') key = `${date.getFullYear()}-Q${Math.floor(date.getMonth()/3)+1}`;
+                let key = d.date.substring(0, 7); // yyyy-MM
+                if (view === 'Quarter') key = `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
                 if (view === 'Year') key = `${date.getFullYear()}`;
-                
+
                 if (!acc[key]) acc[key] = { Income: 0, Expense: 0 };
                 if (d.type === 'Income') acc[key].Income += Number(d.amount);
                 else acc[key].Expense += Number(d.amount);
@@ -90,57 +109,94 @@
             }, {});
 
             const labels = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-            
+
             if (chart) chart.destroy();
+            const ctx = document.getElementById('mainChart').getContext('2d');
             chart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: labels,
+                    labels,
                     datasets: [
-                        { label: 'Income', data: labels.map(m => grouped[m].Income), backgroundColor: '#10b981' },
+                        { label: 'Income',  data: labels.map(m => grouped[m].Income),  backgroundColor: '#10b981' },
                         { label: 'Expense', data: labels.map(m => grouped[m].Expense), backgroundColor: '#f43f5e' },
-                        { label: 'Profit', data: labels.map(m => grouped[m].Income - grouped[m].Expense), backgroundColor: (c) => c.raw >= 0 ? '#3b82f6' : '#9333ea' }
+                        {
+                            label: 'Profit',
+                            data: labels.map(m => grouped[m].Income - grouped[m].Expense),
+                            backgroundColor: labels.map(m => (grouped[m].Income - grouped[m].Expense) >= 0 ? '#3b82f6' : '#9333ea')
+                        }
                     ]
                 },
-                options: { 
-                    responsive: true, 
+                options: {
+                    responsive: true,
                     maintainAspectRatio: false,
                     scales: {
                         x: { ticks: { maxRotation: 45, minRotation: 45, padding: 10 } }
                     },
-                    onClick: (e, el) => { if(el.length && el[0].datasetIndex < 2) drillDown(chart.data.labels[el[0].index], chart.data.datasets[el[0].datasetIndex].label, view); } 
+                    onClick: (e, el) => {
+                        if (el.length && el[0].datasetIndex < 2) {
+                            drillDown(chart.data.labels[el[0].index], chart.data.datasets[el[0].datasetIndex].label, view);
+                        }
+                    }
                 }
             });
         }
 
-        // ... drillDown function remains same ...
         function drillDown(periodKey, type, view) {
             document.getElementById('back-btn').classList.remove('hidden');
+
             const wrapper = document.getElementById('chart-wrapper');
             const inner = document.getElementById('chart-inner');
             wrapper.className = "chart-container-outer static-mode";
             inner.className = "static-content";
+
             const filtered = globalData.filter(d => {
                 const date = new Date(d.date);
                 let dKey = d.date.substring(0, 7);
-                if (view === 'Quarter') dKey = `${date.getFullYear()}-Q${Math.floor(date.getMonth()/3)+1}`;
+                if (view === 'Quarter') dKey = `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
                 if (view === 'Year') dKey = `${date.getFullYear()}`;
                 return dKey === periodKey && d.type === type;
             });
-            const cats = filtered.reduce((acc, d) => { acc[d.category] = (acc[d.category] || 0) + Number(d.amount); return acc; }, {});
-            const colors = ['#fbbf24', '#818cf8', '#f87171', '#34d399', '#a78bfa'];
-            chart.destroy();
-            chart = new Chart(ctx, { type: 'doughnut', data: { labels: Object.keys(cats), datasets: [{ data: Object.values(cats), backgroundColor: colors }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+
+            const catTotals = filtered.reduce((acc, d) => {
+                acc[d.category] = (acc[d.category] || 0) + Number(d.amount);
+                return acc;
+            }, {});
+
+            const colors = ['#fbbf24', '#818cf8', '#f87171', '#34d399', '#a78bfa', '#fb923c', '#38bdf8'];
+
+            if (chart) chart.destroy();
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(catTotals),
+                    datasets: [{ data: Object.values(catTotals), backgroundColor: colors }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+
             const legend = document.getElementById('custom-legend');
             legend.innerHTML = `<h3 class="text-xs font-bold text-stone-500 mb-2">${type} Breakdown (${periodKey})</h3>`;
-            Object.entries(cats).forEach(([label, val], index) => {
-                const color = colors[index % colors.length];
-                legend.innerHTML += `<div class="flex justify-between bg-white p-3 rounded-lg border text-sm font-semibold items-center"><div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background-color: ${color}"></span><span>${label}</span></div><span>₹${val.toLocaleString()}</span></div>`;
+            Object.entries(catTotals).forEach(([label, val], i) => {
+                const color = colors[i % colors.length];
+                legend.innerHTML += `
+                    <div class="flex justify-between bg-white p-3 rounded-lg border text-sm font-semibold items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color:${color}"></span>
+                            <span>${label}</span>
+                        </div>
+                        <span>₹${val.toLocaleString()}</span>
+                    </div>`;
             });
         }
 
         document.getElementById('time-view').onchange = drawMainChart;
         document.getElementById('back-btn').onclick = drawMainChart;
+
         init();
     </script>
 </body>
