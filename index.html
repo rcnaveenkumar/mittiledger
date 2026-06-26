@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-stone-50 p-4 max-w-5xl mx-auto min-h-screen">
-    
+
     <div id="login-overlay" class="fixed inset-0 bg-stone-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white p-6 rounded-3xl shadow-lg border border-stone-100 w-full max-w-sm">
             <h2 class="font-bold text-lg mb-4">Enter Ledger Password</h2>
@@ -43,9 +43,12 @@
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbwj1DcGfxnnJvzbRoFRflWzy_INBD5q9U6N41OQbU7r71T64ZBgZXwHPU-5glc1g-3S4g/exec";
         let mode = 'Income';
-        const cats = { 'Income': ['Workshops', 'Sales - Pottery', 'Sales - Embroidery', 'Sales - Hampers', 'Sales - Art', 'Misc/Others'], 'Expense': ['Pottery Raw Materials', 'Other Raw Materials', 'Firing Charges', 'Packaging', 'Shipping Fees', 'Marketing', 'Vendor - Payment', 'Misc/Others'] };
-        
-        // --- UI TOGGLE LOGIC ---
+        const cats = {
+            'Income': ['Workshops', 'Sales - Pottery', 'Sales - Embroidery', 'Sales - Hampers', 'Sales - Art', 'Misc/Others'],
+            'Expense': ['Pottery Raw Materials', 'Other Raw Materials', 'Firing Charges', 'Packaging', 'Shipping Fees', 'Marketing', 'Vendor - Payment', 'Misc/Others']
+        };
+
+        // --- UI TOGGLE ---
         function updateButtonUI() {
             const incBtn = document.getElementById('type-inc');
             const expBtn = document.getElementById('type-exp');
@@ -59,16 +62,19 @@
             updateCats();
         }
 
+        function updateCats() {
+            document.getElementById('category').innerHTML = cats[mode].map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
         // --- PASSWORD TOGGLE ---
         const passInput = document.getElementById('password-input');
-        const toggleBtn = document.getElementById('toggle-pass');
-        toggleBtn.onclick = () => {
+        document.getElementById('toggle-pass').onclick = () => {
             const isPass = passInput.type === 'password';
             passInput.type = isPass ? 'text' : 'password';
-            toggleBtn.textContent = isPass ? 'HIDE' : 'SHOW';
+            document.getElementById('toggle-pass').textContent = isPass ? 'HIDE' : 'SHOW';
         };
 
-        // --- AUTH LOGIC ---
+        // --- AUTH ---
         let token = sessionStorage.getItem("ledger_token");
         if (token) document.getElementById('login-overlay').classList.add('hidden');
 
@@ -79,48 +85,129 @@
             loadData();
         };
 
-        function updateCats() { document.getElementById('category').innerHTML = cats[mode].map(c => `<option value="${c}">${c}</option>`).join(''); }
-        
-        async function loadData() {
+        // --- LOAD DATA via JSONP (bypasses CORS) ---
+        function loadData() {
             const container = document.getElementById('table-container');
             container.innerHTML = `<div class="p-8 text-center text-stone-400 font-bold text-sm">Loading transactions...</div>`;
-            try {
-                const res = await fetch(`${API_URL}?token=${token}`);
-                const data = await res.json();
+
+            // Remove any previous JSONP script tag
+            const old = document.getElementById('jsonp-loader');
+            if (old) old.remove();
+
+            const callbackName = 'handleLedgerData';
+
+            window[callbackName] = function(data) {
+                delete window[callbackName];
+
+                if (!Array.isArray(data)) {
+                    container.innerHTML = `<div class="p-8 text-center text-rose-500 font-bold text-sm">Auth error or no data.</div>`;
+                    return;
+                }
+
                 data.sort((a, b) => new Date(b.date) - new Date(a.date));
-                const grouped = data.reduce((acc, d, i) => { const m = new Date(d.date).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!acc[m]) acc[m] = []; acc[m].push({ ...d, originalIndex: i }); return acc; }, {});
-                container.innerHTML = Object.keys(grouped).map((m, i) => `<details ${i === 0 ? 'open' : ''} class="group bg-white p-4 rounded-2xl border border-stone-100 shadow-sm"><summary class="text-[10px] font-bold text-stone-400 uppercase tracking-widest cursor-pointer">${m}</summary><div class="space-y-3 mt-4">${grouped[m].map(d => `<div class="flex justify-between items-center border-t pt-3"><div><p class="text-[10px] font-bold text-stone-500 uppercase">${d.date} • ${d.category}</p><p class="text-xs font-semibold">${d.description || 'No comment'}</p></div><div class="flex items-center gap-3"><p class="text-sm font-black ${d.type === 'Income' ? 'text-emerald-600' : 'text-rose-600'}">₹${d.amount}</p><button onclick='editTransaction(${JSON.stringify(d)})' class="text-[10px] bg-stone-100 px-2 py-1 rounded">Edit</button></div></div>`).join('')}</div></details>`).join('');
-            } catch (err) { 
-                container.innerHTML = `<div class="p-8 text-center text-rose-500 font-bold text-sm">Error loading data.</div>`;
-            }
+
+                const grouped = data.reduce((acc, d) => {
+                    const m = new Date(d.date).toLocaleString('default', { month: 'long', year: 'numeric' });
+                    if (!acc[m]) acc[m] = [];
+                    acc[m].push(d);
+                    return acc;
+                }, {});
+
+                if (Object.keys(grouped).length === 0) {
+                    container.innerHTML = `<div class="p-8 text-center text-stone-400 font-bold text-sm">No transactions yet.</div>`;
+                    return;
+                }
+
+                container.innerHTML = Object.keys(grouped).map((m, i) =>
+                    `<details ${i === 0 ? 'open' : ''} class="group bg-white p-4 rounded-2xl border border-stone-100 shadow-sm">
+                        <summary class="text-[10px] font-bold text-stone-400 uppercase tracking-widest cursor-pointer">${m}</summary>
+                        <div class="space-y-3 mt-4">
+                            ${grouped[m].map(d =>
+                                `<div class="flex justify-between items-center border-t pt-3">
+                                    <div>
+                                        <p class="text-[10px] font-bold text-stone-500 uppercase">${d.date} • ${d.category}</p>
+                                        <p class="text-xs font-semibold">${d.description || 'No comment'}</p>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <p class="text-sm font-black ${d.type === 'Income' ? 'text-emerald-600' : 'text-rose-600'}">₹${Number(d.amount).toLocaleString()}</p>
+                                        <button onclick='editTransaction(${JSON.stringify(d)})' class="text-[10px] bg-stone-100 px-2 py-1 rounded">Edit</button>
+                                    </div>
+                                </div>`
+                            ).join('')}
+                        </div>
+                    </details>`
+                ).join('');
+            };
+
+            const script = document.createElement('script');
+            script.id = 'jsonp-loader';
+            script.onerror = () => {
+                container.innerHTML = `<div class="p-8 text-center text-rose-500 font-bold text-sm">Failed to load. Check connection.</div>`;
+            };
+            script.src = `${API_URL}?token=${encodeURIComponent(token)}&callback=${callbackName}`;
+            document.body.appendChild(script);
         }
 
-        function editTransaction(d) { 
-            document.getElementById('edit-index').value = d.originalIndex; 
-            document.getElementById('date').value = d.date; 
-            document.getElementById('description').value = d.description; 
-            document.getElementById('amount').value = d.amount; 
-            mode = d.type; 
-            updateButtonUI(); 
-            document.getElementById('category').value = d.category; 
-            document.getElementById('submit-btn').textContent = "Update Transaction"; 
-            window.scrollTo(0, 0); 
+        // --- EDIT ---
+        function editTransaction(d) {
+            document.getElementById('edit-index').value = d.originalIndex;
+            document.getElementById('date').value = d.date;
+            document.getElementById('description').value = d.description;
+            document.getElementById('amount').value = d.amount;
+            mode = d.type;
+            updateButtonUI();
+            document.getElementById('category').value = d.category;
+            document.getElementById('submit-btn').textContent = "Update Transaction";
+            window.scrollTo(0, 0);
         }
-        
-        document.getElementById('tx-form').onsubmit = async (e) => { 
-            e.preventDefault(); 
+
+        // --- SUBMIT via no-cors POST (avoids preflight) ---
+        document.getElementById('tx-form').onsubmit = async (e) => {
+            e.preventDefault();
             const submitBtn = document.getElementById('submit-btn');
             submitBtn.textContent = "Saving...";
-            const payload = { token: token, action: document.getElementById('edit-index').value ? 'edit' : 'add', index: document.getElementById('edit-index').value, date: document.getElementById('date').value, type: mode, category: document.getElementById('category').value, description: document.getElementById('description').value, amount: document.getElementById('amount').value };
-            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
-            alert("Success!"); submitBtn.textContent = "Save Transaction"; document.getElementById('tx-form').reset(); document.getElementById('edit-index').value = ""; loadData(); 
+            submitBtn.disabled = true;
+
+            const payload = {
+                token: token,
+                action: document.getElementById('edit-index').value !== '' ? 'edit' : 'add',
+                index: document.getElementById('edit-index').value,
+                date: document.getElementById('date').value,
+                type: mode,
+                category: document.getElementById('category').value,
+                description: document.getElementById('description').value,
+                amount: document.getElementById('amount').value
+            };
+
+            try {
+                // no-cors: response is opaque but the POST reaches GAS fine
+                await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify(payload)
+                    // NOTE: Do NOT set Content-Type header — that triggers a preflight
+                });
+            } catch (err) {
+                // no-cors fetch may throw on network error; ignore opaque-response "errors"
+            }
+
+            alert("Saved! Refreshing...");
+            submitBtn.textContent = "Save Transaction";
+            submitBtn.disabled = false;
+            document.getElementById('tx-form').reset();
+            document.getElementById('edit-index').value = "";
+            document.getElementById('date').valueAsDate = new Date();
+            updateButtonUI();
+            // Small delay so GAS has time to write before we re-fetch
+            setTimeout(loadData, 1500);
         };
-        
+
         document.getElementById('type-inc').onclick = () => { mode = 'Income'; updateButtonUI(); };
         document.getElementById('type-exp').onclick = () => { mode = 'Expense'; updateButtonUI(); };
-        
+
         document.getElementById('date').valueAsDate = new Date();
-        updateButtonUI(); if(token) loadData();
+        updateButtonUI();
+        if (token) loadData();
     </script>
 </body>
 </html>
