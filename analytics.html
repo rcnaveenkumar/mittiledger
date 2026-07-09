@@ -1,203 +1,359 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mitti Analytics</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .chart-container-outer { position: relative; height: 300px; width: 100%; }
-        @media (min-width: 768px) { .chart-container-outer { height: 450px; } }
-        .scrollable-area { overflow-x: auto; overflow-y: hidden; width: 100%; padding-bottom: 20px; }
-        .scrollable-content { height: 100%; min-width: 800px; }
-        .static-mode { overflow: hidden !important; }
-        .static-content { height: 100%; width: 100%; min-width: 100% !important; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mitti Analytics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EFEAE1; --surface:#FBF9F5; --ink:#2B2622; --ink-soft:#6B6259;
+    --celadon:#5F8069; --celadon-soft:#E4EBE2;
+    --oxide:#9C4A2E; --oxide-soft:#F3E4DB;
+    --slip:#4F6C87; --slip-soft:#E5EBF0;
+    --ochre:#B9822F; --ochre-soft:#F2E6D0;
+    --line:#DDD5C7;
+  }
+  *{font-family:'Inter',sans-serif;}
+  body{background:var(--bg); color:var(--ink);}
+  .font-display{font-family:'Fraunces',serif;}
+  .font-mono{font-family:'IBM Plex Mono',monospace;}
+  .rim-card{ background:var(--surface); border:1px solid var(--line); border-radius:22px 22px 14px 14px; box-shadow: inset 0 3px 0 0 rgba(43,38,34,0.05), 0 1px 2px rgba(43,38,34,0.04); }
+  .chart-container-outer { position: relative; height: 300px; width: 100%; }
+  @media (min-width: 768px) { .chart-container-outer { height: 420px; } }
+  .scrollable-area { overflow-x: auto; overflow-y: hidden; width: 100%; padding-bottom: 20px; }
+  .scrollable-content { height: 100%; min-width: 800px; }
+  .static-mode { overflow: hidden !important; }
+  .static-content { height: 100%; width: 100%; min-width: 100% !important; }
+  .bar-track{ background:var(--bg); border-radius:99px; height:6px; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:99px; }
+</style>
 </head>
-<body class="bg-stone-50 p-4 mx-auto min-h-screen max-w-sm md:max-w-5xl">
+<body class="p-4 mx-auto min-h-screen max-w-sm md:max-w-6xl">
 
-    <div class="flex items-center justify-between mb-6">
-        <a href="index.html" class="text-xs font-bold text-stone-400 uppercase tracking-widest">← Back</a>
-        <button id="back-btn" class="hidden text-xs font-bold text-stone-800 bg-stone-200 px-3 py-1 rounded-lg">Reset View</button>
-    </div>
+  <div class="flex items-center justify-between mb-6">
+    <a href="index.html" class="text-[10px] font-bold uppercase tracking-widest" style="color:var(--ink-soft);">← Back to Ledger</a>
+    <h1 class="font-display font-semibold text-lg hidden md:block">Studio Insights</h1>
+    <button id="back-btn" class="hidden text-[11px] font-bold px-3 py-1 rounded-lg" style="background:var(--ink); color:var(--surface);">Reset View</button>
+  </div>
 
-    <div id="loading-msg" class="p-8 text-center text-stone-400 font-bold text-sm">Loading analytics...</div>
-    <div id="error-msg" class="hidden p-8 text-center text-rose-500 font-bold text-sm">Failed to load data. Please go back and log in again.</div>
+  <div id="loading-msg" class="rim-card p-8 text-center text-sm font-bold" style="color:var(--ink-soft);">Loading analytics…</div>
+  <div id="error-msg" class="hidden rim-card p-8 text-center text-sm font-bold" style="color:var(--oxide);">Failed to load data. Please go back and log in again.</div>
 
-    <div id="main-content" class="hidden md:grid md:grid-cols-3 md:gap-8">
-        <div class="md:col-span-2">
-            <select id="time-view" class="w-full p-3 mb-6 rounded-xl border border-stone-200 font-bold text-sm bg-white shadow-sm">
-                <option value="Month">Month-Year</option>
-                <option value="Quarter">Quarter-Year</option>
-                <option value="Year">Year</option>
-            </select>
-            <div class="bg-white p-4 rounded-3xl shadow-sm border border-stone-100">
-                <div id="chart-wrapper" class="chart-container-outer scrollable-area">
-                    <div id="chart-inner" class="scrollable-content">
-                        <canvas id="mainChart"></canvas>
-                    </div>
-                </div>
-            </div>
+  <div id="main-content" class="hidden space-y-6">
+
+    <!-- KPI ROW -->
+    <div id="kpi-row" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+
+    <div class="md:grid md:grid-cols-3 md:gap-6">
+      <!-- TREND CHART -->
+      <div class="md:col-span-2 rim-card p-4">
+        <div class="flex justify-between items-center mb-2">
+          <p class="text-[10px] font-bold uppercase tracking-widest" style="color:var(--ink-soft);">Income · Expense · Profit Trend</p>
+          <span id="mom-badge" class="text-[10px] font-mono font-bold px-2 py-1 rounded-lg"></span>
         </div>
-        <div id="custom-legend" class="mt-8 md:mt-0 space-y-2"></div>
+        <div class="chart-container-outer">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+
+      <!-- TOP CATEGORIES -->
+      <div class="rim-card p-4 mt-4 md:mt-0">
+        <p class="text-[10px] font-bold uppercase tracking-widest mb-3" style="color:var(--ink-soft);">Top Categories</p>
+        <p class="text-[10px] font-bold uppercase mb-2" style="color:var(--celadon);">Income</p>
+        <div id="top-income" class="space-y-2 mb-4"></div>
+        <p class="text-[10px] font-bold uppercase mb-2" style="color:var(--oxide);">Expense</p>
+        <div id="top-expense" class="space-y-2"></div>
+      </div>
     </div>
 
-    <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbwj1DcGfxnnJvzbRoFRflWzy_INBD5q9U6N41OQbU7r71T64ZBgZXwHPU-5glc1g-3S4g/exec";
-        let chart, globalData = [];
+    <!-- EXISTING BREAKDOWN CHART -->
+    <div class="md:grid md:grid-cols-3 md:gap-6">
+      <div class="md:col-span-2 rim-card p-4">
+        <select id="time-view" class="w-full p-3 mb-4 rounded-xl border font-bold text-sm" style="background:var(--bg); border-color:var(--line);">
+          <option value="Month">Month-Year</option>
+          <option value="Quarter">Quarter-Year</option>
+          <option value="Year">Year</option>
+        </select>
+        <div id="chart-wrapper" class="chart-container-outer scrollable-area">
+          <div id="chart-inner" class="scrollable-content">
+            <canvas id="mainChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div id="custom-legend" class="mt-4 md:mt-0 space-y-2"></div>
+    </div>
+  </div>
 
-        function init() {
-            const token = sessionStorage.getItem("ledger_token");
-            if (!token) {
-                window.location.href = "index.html";
-                return;
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbwj1DcGfxnnJvzbRoFRflWzy_INBD5q9U6N41OQbU7r71T64ZBgZXwHPU-5glc1g-3S4g/exec";
+    let chart, trendChart, globalData = [];
+
+    function fmt(n){ return '₹' + Number(n || 0).toLocaleString('en-IN'); }
+
+    function init() {
+      const token = sessionStorage.getItem("ledger_token");
+      if (!token) { window.location.href = "index.html"; return; }
+
+      const old = document.getElementById('analytics-jsonp');
+      if (old) old.remove();
+
+      window.analyticsCallback = function(data) {
+        delete window.analyticsCallback;
+        if (!Array.isArray(data)) {
+          document.getElementById('loading-msg').classList.add('hidden');
+          document.getElementById('error-msg').classList.remove('hidden');
+          return;
+        }
+        globalData = data;
+        document.getElementById('loading-msg').classList.add('hidden');
+        document.getElementById('main-content').classList.remove('hidden');
+        renderKPIs();
+        drawTrendChart();
+        renderTopCategories();
+        drawMainChart();
+      };
+
+      const script = document.createElement('script');
+      script.id = 'analytics-jsonp';
+      script.onerror = () => {
+        document.getElementById('loading-msg').classList.add('hidden');
+        document.getElementById('error-msg').classList.remove('hidden');
+      };
+      script.src = `${API_URL}?token=${encodeURIComponent(token)}&callback=analyticsCallback`;
+      document.body.appendChild(script);
+    }
+
+    // --- monthly aggregation helper, sorted ascending ---
+    function monthlyAgg(){
+      const grouped = globalData.reduce((acc, d) => {
+        const key = d.date.substring(0,7);
+        if (!acc[key]) acc[key] = { Income: 0, Expense: 0 };
+        if (d.type === 'Income') acc[key].Income += Number(d.amount);
+        else acc[key].Expense += Number(d.amount);
+        return acc;
+      }, {});
+      const keys = Object.keys(grouped).sort();
+      return { keys, grouped };
+    }
+
+    function monthLabel(key){
+      const [y,m] = key.split('-');
+      return new Date(y, m-1, 1).toLocaleString('default', { month: 'short', year: '2-digit' });
+    }
+
+    // --- KPI CARDS ---
+    function renderKPIs(){
+      const totalInc = globalData.filter(d=>d.type==='Income').reduce((s,d)=>s+Number(d.amount),0);
+      const totalExp = globalData.filter(d=>d.type==='Expense').reduce((s,d)=>s+Number(d.amount),0);
+      const profit = totalInc - totalExp;
+      const margin = totalInc > 0 ? (profit/totalInc*100) : 0;
+
+      const { keys, grouped } = monthlyAgg();
+      const avgMonthlyIncome = keys.length ? (totalInc / keys.length) : 0;
+
+      let bestKey = null, bestProfit = -Infinity;
+      keys.forEach(k => {
+        const p = grouped[k].Income - grouped[k].Expense;
+        if (p > bestProfit) { bestProfit = p; bestKey = k; }
+      });
+
+      const cards = [
+        { label: 'Lifetime Profit', value: fmt(profit), color: profit>=0 ? 'var(--celadon)' : 'var(--oxide)' },
+        { label: 'Profit Margin', value: margin.toFixed(1) + '%', color: 'var(--slip)' },
+        { label: 'Avg Monthly Income', value: fmt(avgMonthlyIncome), color: 'var(--ochre)' },
+        { label: 'Best Month', value: bestKey ? monthLabel(bestKey) : '—', color: 'var(--celadon)' }
+      ];
+
+      document.getElementById('kpi-row').innerHTML = cards.map(c => `
+        <div class="rim-card p-4">
+          <p class="text-[9px] font-bold uppercase tracking-widest" style="color:var(--ink-soft);">${c.label}</p>
+          <p class="font-mono font-semibold text-lg mt-1" style="color:${c.color};">${c.value}</p>
+        </div>
+      `).join('');
+
+      // MoM badge
+      if (keys.length >= 2) {
+        const lastKey = keys[keys.length-1], prevKey = keys[keys.length-2];
+        const lastNet = grouped[lastKey].Income - grouped[lastKey].Expense;
+        const prevNet = grouped[prevKey].Income - grouped[prevKey].Expense;
+        const badge = document.getElementById('mom-badge');
+        if (prevNet !== 0) {
+          const pct = ((lastNet - prevNet) / Math.abs(prevNet) * 100).toFixed(0);
+          const up = pct >= 0;
+          badge.textContent = `${up ? '▲' : '▼'} ${Math.abs(pct)}% MoM`;
+          badge.style.background = up ? 'var(--celadon-soft)' : 'var(--oxide-soft)';
+          badge.style.color = up ? 'var(--celadon)' : 'var(--oxide)';
+        }
+      }
+    }
+
+    // --- TREND CHART ---
+    function drawTrendChart(){
+      const { keys, grouped } = monthlyAgg();
+      const labels = keys.map(monthLabel);
+      const income = keys.map(k => grouped[k].Income);
+      const expense = keys.map(k => grouped[k].Expense);
+      const profit = keys.map(k => grouped[k].Income - grouped[k].Expense);
+
+      if (trendChart) trendChart.destroy();
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Income', data: income, borderColor: '#5F8069', backgroundColor: '#5F8069', tension: 0.3, pointRadius: 3 },
+            { label: 'Expense', data: expense, borderColor: '#9C4A2E', backgroundColor: '#9C4A2E', tension: 0.3, pointRadius: 3 },
+            { label: 'Profit', data: profit, borderColor: '#4F6C87', backgroundColor: '#4F6C87', borderDash: [4,3], tension: 0.3, pointRadius: 3 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+          scales: { x: { ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } }
+        }
+      });
+    }
+
+    // --- TOP CATEGORIES ---
+    function renderTopCategories(){
+      function topFor(type, colorVar){
+        const totals = globalData.filter(d=>d.type===type).reduce((acc,d) => {
+          acc[d.category] = (acc[d.category]||0) + Number(d.amount);
+          return acc;
+        }, {});
+        const total = Object.values(totals).reduce((a,b)=>a+b,0) || 1;
+        return Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([cat,val]) => ({
+          cat, val, pct: (val/total*100).toFixed(0)
+        }));
+      }
+
+      const incTop = topFor('Income');
+      const expTop = topFor('Expense');
+
+      document.getElementById('top-income').innerHTML = incTop.map(c => `
+        <div>
+          <div class="flex justify-between text-[11px] font-semibold mb-1"><span>${c.cat}</span><span class="font-mono">${fmt(c.val)}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${c.pct}%; background:var(--celadon);"></div></div>
+        </div>`).join('') || '<p class="text-[11px]" style="color:var(--ink-soft);">No income yet.</p>';
+
+      document.getElementById('top-expense').innerHTML = expTop.map(c => `
+        <div>
+          <div class="flex justify-between text-[11px] font-semibold mb-1"><span>${c.cat}</span><span class="font-mono">${fmt(c.val)}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${c.pct}%; background:var(--oxide);"></div></div>
+        </div>`).join('') || '<p class="text-[11px]" style="color:var(--ink-soft);">No expenses yet.</p>';
+    }
+
+    // --- EXISTING BAR + DRILLDOWN ---
+    function drawMainChart() {
+      document.getElementById('back-btn').classList.add('hidden');
+      document.getElementById('custom-legend').innerHTML = '';
+
+      const wrapper = document.getElementById('chart-wrapper');
+      const inner = document.getElementById('chart-inner');
+      wrapper.className = "chart-container-outer scrollable-area";
+      inner.className = "scrollable-content";
+
+      const view = document.getElementById('time-view').value;
+
+      const grouped = globalData.reduce((acc, d) => {
+        const date = new Date(d.date);
+        let key = d.date.substring(0, 7);
+        if (view === 'Quarter') key = `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
+        if (view === 'Year') key = `${date.getFullYear()}`;
+
+        if (!acc[key]) acc[key] = { Income: 0, Expense: 0 };
+        if (d.type === 'Income') acc[key].Income += Number(d.amount);
+        else acc[key].Expense += Number(d.amount);
+        return acc;
+      }, {});
+
+      const labels = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+      if (chart) chart.destroy();
+      const ctx = document.getElementById('mainChart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Income',  data: labels.map(m => grouped[m].Income),  backgroundColor: '#5F8069' },
+            { label: 'Expense', data: labels.map(m => grouped[m].Expense), backgroundColor: '#9C4A2E' },
+            {
+              label: 'Profit',
+              data: labels.map(m => grouped[m].Income - grouped[m].Expense),
+              backgroundColor: labels.map(m => (grouped[m].Income - grouped[m].Expense) >= 0 ? '#4F6C87' : '#B9822F')
             }
-
-            // Remove stale JSONP script if any
-            const old = document.getElementById('analytics-jsonp');
-            if (old) old.remove();
-
-            // JSONP callback — must be global
-            window.analyticsCallback = function(data) {
-                delete window.analyticsCallback;
-
-                if (!Array.isArray(data)) {
-                    document.getElementById('loading-msg').classList.add('hidden');
-                    document.getElementById('error-msg').classList.remove('hidden');
-                    return;
-                }
-
-                globalData = data;
-                document.getElementById('loading-msg').classList.add('hidden');
-                document.getElementById('main-content').classList.remove('hidden');
-                document.getElementById('main-content').classList.add('block', 'md:grid');
-                drawMainChart();
-            };
-
-            const script = document.createElement('script');
-            script.id = 'analytics-jsonp';
-            script.onerror = () => {
-                document.getElementById('loading-msg').classList.add('hidden');
-                document.getElementById('error-msg').classList.remove('hidden');
-            };
-            script.src = `${API_URL}?token=${encodeURIComponent(token)}&callback=analyticsCallback`;
-            document.body.appendChild(script);
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+          scales: { x: { ticks: { maxRotation: 45, minRotation: 45, padding: 10, font: { size: 10 } } } },
+          onClick: (e, el) => {
+            if (el.length && el[0].datasetIndex < 2) {
+              drillDown(chart.data.labels[el[0].index], chart.data.datasets[el[0].datasetIndex].label, view);
+            }
+          }
         }
+      });
+    }
 
-        function drawMainChart() {
-            document.getElementById('back-btn').classList.add('hidden');
-            document.getElementById('custom-legend').innerHTML = '';
+    function drillDown(periodKey, type, view) {
+      document.getElementById('back-btn').classList.remove('hidden');
 
-            const wrapper = document.getElementById('chart-wrapper');
-            const inner = document.getElementById('chart-inner');
-            wrapper.className = "chart-container-outer scrollable-area";
-            inner.className = "scrollable-content";
+      const wrapper = document.getElementById('chart-wrapper');
+      const inner = document.getElementById('chart-inner');
+      wrapper.className = "chart-container-outer static-mode";
+      inner.className = "static-content";
 
-            const view = document.getElementById('time-view').value;
+      const filtered = globalData.filter(d => {
+        const date = new Date(d.date);
+        let dKey = d.date.substring(0, 7);
+        if (view === 'Quarter') dKey = `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
+        if (view === 'Year') dKey = `${date.getFullYear()}`;
+        return dKey === periodKey && d.type === type;
+      });
 
-            const grouped = globalData.reduce((acc, d) => {
-                const date = new Date(d.date);
-                let key = d.date.substring(0, 7); // yyyy-MM
-                if (view === 'Quarter') key = `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
-                if (view === 'Year') key = `${date.getFullYear()}`;
+      const catTotals = filtered.reduce((acc, d) => {
+        acc[d.category] = (acc[d.category] || 0) + Number(d.amount);
+        return acc;
+      }, {});
 
-                if (!acc[key]) acc[key] = { Income: 0, Expense: 0 };
-                if (d.type === 'Income') acc[key].Income += Number(d.amount);
-                else acc[key].Expense += Number(d.amount);
-                return acc;
-            }, {});
+      const colors = ['#B9822F', '#4F6C87', '#9C4A2E', '#5F8069', '#8A7CA8', '#C97A4A', '#4FA0B9'];
 
-            const labels = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+      if (chart) chart.destroy();
+      const ctx = document.getElementById('mainChart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: Object.keys(catTotals), datasets: [{ data: Object.values(catTotals), backgroundColor: colors }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
 
-            if (chart) chart.destroy();
-            const ctx = document.getElementById('mainChart').getContext('2d');
-            chart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [
-                        { label: 'Income',  data: labels.map(m => grouped[m].Income),  backgroundColor: '#10b981' },
-                        { label: 'Expense', data: labels.map(m => grouped[m].Expense), backgroundColor: '#f43f5e' },
-                        {
-                            label: 'Profit',
-                            data: labels.map(m => grouped[m].Income - grouped[m].Expense),
-                            backgroundColor: labels.map(m => (grouped[m].Income - grouped[m].Expense) >= 0 ? '#3b82f6' : '#9333ea')
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: { ticks: { maxRotation: 45, minRotation: 45, padding: 10 } }
-                    },
-                    onClick: (e, el) => {
-                        if (el.length && el[0].datasetIndex < 2) {
-                            drillDown(chart.data.labels[el[0].index], chart.data.datasets[el[0].datasetIndex].label, view);
-                        }
-                    }
-                }
-            });
-        }
+      const legend = document.getElementById('custom-legend');
+      legend.innerHTML = `<h3 class="text-[10px] font-bold uppercase tracking-widest mb-2" style="color:var(--ink-soft);">${type} Breakdown (${periodKey})</h3>`;
+      Object.entries(catTotals).forEach(([label, val], i) => {
+        const color = colors[i % colors.length];
+        legend.innerHTML += `
+          <div class="flex justify-between rim-card p-3 text-sm font-semibold items-center">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color:${color}"></span>
+              <span>${label}</span>
+            </div>
+            <span class="font-mono">${fmt(val)}</span>
+          </div>`;
+      });
+    }
 
-        function drillDown(periodKey, type, view) {
-            document.getElementById('back-btn').classList.remove('hidden');
+    document.getElementById('time-view').onchange = drawMainChart;
+    document.getElementById('back-btn').onclick = drawMainChart;
 
-            const wrapper = document.getElementById('chart-wrapper');
-            const inner = document.getElementById('chart-inner');
-            wrapper.className = "chart-container-outer static-mode";
-            inner.className = "static-content";
-
-            const filtered = globalData.filter(d => {
-                const date = new Date(d.date);
-                let dKey = d.date.substring(0, 7);
-                if (view === 'Quarter') dKey = `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
-                if (view === 'Year') dKey = `${date.getFullYear()}`;
-                return dKey === periodKey && d.type === type;
-            });
-
-            const catTotals = filtered.reduce((acc, d) => {
-                acc[d.category] = (acc[d.category] || 0) + Number(d.amount);
-                return acc;
-            }, {});
-
-            const colors = ['#fbbf24', '#818cf8', '#f87171', '#34d399', '#a78bfa', '#fb923c', '#38bdf8'];
-
-            if (chart) chart.destroy();
-            const ctx = document.getElementById('mainChart').getContext('2d');
-            chart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(catTotals),
-                    datasets: [{ data: Object.values(catTotals), backgroundColor: colors }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
-            });
-
-            const legend = document.getElementById('custom-legend');
-            legend.innerHTML = `<h3 class="text-xs font-bold text-stone-500 mb-2">${type} Breakdown (${periodKey})</h3>`;
-            Object.entries(catTotals).forEach(([label, val], i) => {
-                const color = colors[i % colors.length];
-                legend.innerHTML += `
-                    <div class="flex justify-between bg-white p-3 rounded-lg border text-sm font-semibold items-center">
-                        <div class="flex items-center gap-2">
-                            <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color:${color}"></span>
-                            <span>${label}</span>
-                        </div>
-                        <span>₹${val.toLocaleString()}</span>
-                    </div>`;
-            });
-        }
-
-        document.getElementById('time-view').onchange = drawMainChart;
-        document.getElementById('back-btn').onclick = drawMainChart;
-
-        init();
-    </script>
+    init();
+  </script>
 </body>
 </html>
