@@ -142,7 +142,13 @@
 
     function monthLabel(key){
       const [y,m] = key.split('-');
-      return new Date(y, m-1, 1).toLocaleString('default', { month: 'short', year: '2-digit' });
+      const base = new Date(y, m-1, 1).toLocaleString('default', { month: 'short', year: '2-digit' });
+      return key === currentMonthKey() ? base + ' (MTD)' : base;
+    }
+
+    function currentMonthKey(){
+      const now = new Date();
+      return now.toISOString().slice(0,7);
     }
 
     // --- KPI CARDS ---
@@ -175,29 +181,33 @@
         </div>
       `).join('');
 
-      // MoM badge
-      if (keys.length >= 2) {
-        const lastKey = keys[keys.length-1], prevKey = keys[keys.length-2];
+      // MoM badge — compares the two most recent COMPLETE months.
+      // The in-progress current month is excluded since it's only partially
+      // through, and would always look like a decline versus a full month.
+      const completeKeys = keys.filter(k => k !== currentMonthKey());
+      if (completeKeys.length >= 2) {
+        const lastKey = completeKeys[completeKeys.length-1], prevKey = completeKeys[completeKeys.length-2];
         const lastNet = grouped[lastKey].Income - grouped[lastKey].Expense;
         const prevNet = grouped[prevKey].Income - grouped[prevKey].Expense;
         const badge = document.getElementById('mom-badge');
         if (prevNet !== 0) {
           const pct = ((lastNet - prevNet) / Math.abs(prevNet) * 100).toFixed(0);
           const up = pct >= 0;
-          badge.textContent = `${up ? '▲' : '▼'} ${Math.abs(pct)}% MoM`;
+          badge.textContent = `${up ? '▲' : '▼'} ${Math.abs(pct)}% MoM (${monthLabel(lastKey)})`;
           badge.style.background = up ? 'var(--celadon-soft)' : 'var(--oxide-soft)';
           badge.style.color = up ? 'var(--celadon)' : 'var(--oxide)';
         }
       }
     }
 
-    // --- TREND CHART ---
+    // --- TREND CHART (latest month first, left to right) ---
     function drawTrendChart(){
       const { keys, grouped } = monthlyAgg();
-      const labels = keys.map(monthLabel);
-      const income = keys.map(k => grouped[k].Income);
-      const expense = keys.map(k => grouped[k].Expense);
-      const profit = keys.map(k => grouped[k].Income - grouped[k].Expense);
+      const orderedKeys = [...keys].reverse();
+      const labels = orderedKeys.map(monthLabel);
+      const income = orderedKeys.map(k => grouped[k].Income);
+      const expense = orderedKeys.map(k => grouped[k].Expense);
+      const profit = orderedKeys.map(k => grouped[k].Income - grouped[k].Expense);
 
       if (trendChart) trendChart.destroy();
       const ctx = document.getElementById('trendChart').getContext('2d');
