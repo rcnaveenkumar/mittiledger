@@ -1,213 +1,395 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mitti Ledger</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mitti Studio Ledger</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EFEAE1;
+    --surface:#FBF9F5;
+    --ink:#2B2622;
+    --ink-soft:#6B6259;
+    --celadon:#5F8069;
+    --celadon-soft:#E4EBE2;
+    --oxide:#9C4A2E;
+    --oxide-soft:#F3E4DB;
+    --slip:#4F6C87;
+    --slip-soft:#E5EBF0;
+    --ochre:#B9822F;
+    --line:#DDD5C7;
+  }
+  *{font-family:'Inter',sans-serif;}
+  body{background:var(--bg); color:var(--ink);}
+  .font-display{font-family:'Fraunces',serif;}
+  .font-mono{font-family:'IBM Plex Mono',monospace;}
+  .rim-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:22px 22px 14px 14px;
+    box-shadow: inset 0 3px 0 0 rgba(43,38,34,0.05), 0 1px 2px rgba(43,38,34,0.04);
+  }
+  .glaze-drip{
+    background: radial-gradient(120% 100% at 50% 0%, transparent 60%, rgba(95,128,105,0.06) 100%);
+  }
+  ::-webkit-scrollbar{height:6px; width:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:99px;}
+  input, select { font-family:'Inter',sans-serif; }
+</style>
 </head>
-<body class="bg-stone-50 p-4 max-w-5xl mx-auto min-h-screen">
+<body class="p-4 max-w-6xl mx-auto min-h-screen">
 
-    <div id="login-overlay" class="fixed inset-0 bg-stone-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-6 rounded-3xl shadow-lg border border-stone-100 w-full max-w-sm">
-            <h2 class="font-bold text-lg mb-4">Enter Ledger Password</h2>
-            <div class="relative mb-4">
-                <input type="password" id="password-input" class="w-full p-3 bg-stone-50 rounded-xl border border-stone-200" placeholder="Password">
-                <button type="button" id="toggle-pass" class="absolute right-3 top-3 text-xs font-bold text-stone-400">SHOW</button>
-            </div>
-            <button id="login-btn" class="w-full bg-stone-800 text-white py-3 rounded-xl font-bold">Access Ledger</button>
+  <div id="login-overlay" class="fixed inset-0 flex items-center justify-center p-4 z-50" style="background:var(--bg);">
+    <div class="rim-card p-6 w-full max-w-sm">
+      <p class="text-[10px] font-bold tracking-widest uppercase" style="color:var(--ink-soft);">Mitti Studio</p>
+      <h2 class="font-display font-semibold text-xl mb-4">Enter Ledger Password</h2>
+      <div class="relative mb-4">
+        <input type="password" id="password-input" class="w-full p-3 rounded-xl border" style="background:var(--bg); border-color:var(--line);" placeholder="Password">
+        <button type="button" id="toggle-pass" class="absolute right-3 top-3 text-[10px] font-bold" style="color:var(--ink-soft);">SHOW</button>
+      </div>
+      <button id="login-btn" class="w-full text-white py-3 rounded-xl font-bold" style="background:var(--ink);">Access Ledger</button>
+    </div>
+  </div>
+
+  <header class="mb-6 flex justify-between items-end">
+    <div>
+      <p class="text-[10px] font-bold tracking-widest uppercase" style="color:var(--ink-soft);">Handcrafted · Bookkeeping</p>
+      <h1 class="font-display font-semibold text-2xl">Mitti Studio Ledger</h1>
+    </div>
+    <a href="analytics.html" class="px-4 py-2 rounded-xl text-[11px] font-bold" style="background:var(--ink); color:var(--surface);">Analytics →</a>
+  </header>
+
+  <!-- KPI ROW -->
+  <div id="kpi-row" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6"></div>
+
+  <div class="md:grid md:grid-cols-3 md:gap-8">
+
+    <form id="tx-form" class="rim-card glaze-drip p-5 space-y-4 mb-8">
+      <input type="hidden" id="edit-index">
+      <div class="flex p-1 rounded-xl" style="background:var(--bg);">
+        <button type="button" id="type-inc" class="flex-1 py-2 text-xs font-bold rounded-lg">Income</button>
+        <button type="button" id="type-exp" class="flex-1 py-2 text-xs font-bold">Expense</button>
+      </div>
+      <input type="date" id="date" required class="w-full h-[50px] p-3 rounded-xl border" style="background:var(--bg); border-color:var(--line);">
+      <select id="category" class="w-full p-3 rounded-xl border text-sm" style="background:var(--bg); border-color:var(--line);"></select>
+      <input type="text" id="description" placeholder="Description" class="w-full p-3 rounded-xl border" style="background:var(--bg); border-color:var(--line);">
+      <input type="number" id="amount" placeholder="Amount (₹)" required class="w-full p-3 rounded-xl border font-mono font-semibold" style="background:var(--bg); border-color:var(--line);">
+      <button type="submit" id="submit-btn" class="w-full text-white py-3 rounded-xl font-bold" style="background:var(--ink);">Save Transaction</button>
+    </form>
+
+    <div class="md:col-span-2">
+
+      <!-- FILTER BAR -->
+      <div class="rim-card p-4 mb-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+          <input type="text" id="f-search" placeholder="Search description…" class="col-span-2 md:col-span-1 p-2 rounded-lg border text-xs" style="background:var(--bg); border-color:var(--line);">
+          <select id="f-type" class="p-2 rounded-lg border text-xs" style="background:var(--bg); border-color:var(--line);">
+            <option value="">All Types</option>
+            <option value="Income">Income</option>
+            <option value="Expense">Expense</option>
+          </select>
+          <select id="f-category" class="p-2 rounded-lg border text-xs" style="background:var(--bg); border-color:var(--line);">
+            <option value="">All Categories</option>
+          </select>
+          <input type="date" id="f-from" class="p-2 rounded-lg border text-xs" style="background:var(--bg); border-color:var(--line);">
+          <input type="date" id="f-to" class="p-2 rounded-lg border text-xs" style="background:var(--bg); border-color:var(--line);">
         </div>
+        <div class="flex justify-between items-center mt-3">
+          <button id="f-clear" class="text-[10px] font-bold underline" style="color:var(--ink-soft);">Clear filters</button>
+          <button id="export-csv" class="text-[10px] font-bold px-3 py-2 rounded-lg" style="background:var(--slip-soft); color:var(--slip);">Export CSV</button>
+        </div>
+      </div>
+
+      <div id="table-container" class="space-y-4"></div>
     </div>
+  </div>
 
-    <header class="mb-6 flex justify-between items-center">
-        <h1 class="font-bold text-xl text-stone-800">Mitti Studio Ledger</h1>
-        <a href="analytics.html" class="bg-stone-200 px-3 py-1 rounded-lg text-[10px] font-bold text-stone-800">Analytics →</a>
-    </header>
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbwj1DcGfxnnJvzbRoFRflWzy_INBD5q9U6N41OQbU7r71T64ZBgZXwHPU-5glc1g-3S4g/exec";
+    let mode = 'Income';
+    let rawData = [];
+    const cats = {
+      'Income': ['Workshops', 'Sales - Pottery', 'Sales - Embroidery', 'Sales - Hampers', 'Sales - Art', 'Misc/Others'],
+      'Expense': ['Pottery Raw Materials', 'Other Raw Materials', 'Firing Charges', 'Packaging', 'Shipping Fees', 'Marketing', 'Vendor - Payment', 'Misc/Others']
+    };
 
-    <div class="md:grid md:grid-cols-3 md:gap-8">
-        <form id="tx-form" class="bg-white p-5 rounded-3xl shadow-sm border border-stone-100 space-y-4 mb-8">
-            <input type="hidden" id="edit-index">
-            <div class="flex p-1 bg-stone-100 rounded-xl">
-                <button type="button" id="type-inc" class="flex-1 py-2 text-xs font-bold rounded-lg bg-white shadow-sm">Income</button>
-                <button type="button" id="type-exp" class="flex-1 py-2 text-xs font-bold text-stone-500">Expense</button>
-            </div>
-            <input type="date" id="date" required class="w-full h-[50px] p-3 bg-stone-50 rounded-xl border border-stone-200">
-            <select id="category" class="w-full p-3 bg-stone-50 rounded-xl border border-stone-200 text-sm"></select>
-            <input type="text" id="description" placeholder="Description" class="w-full p-3 bg-stone-50 rounded-xl border border-stone-200">
-            <input type="number" id="amount" placeholder="Amount (₹)" required class="w-full p-3 bg-stone-50 rounded-xl border border-stone-200 font-bold">
-            <button type="submit" id="submit-btn" class="w-full bg-stone-800 text-white py-3 rounded-xl font-bold">Save Transaction</button>
-        </form>
-        <div id="table-container" class="md:col-span-2 space-y-4"></div>
-    </div>
+    function normalize(s){ return (s || '').toString().trim(); }
+    function fmt(n){ return '₹' + Number(n || 0).toLocaleString('en-IN'); }
 
-    <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbwj1DcGfxnnJvzbRoFRflWzy_INBD5q9U6N41OQbU7r71T64ZBgZXwHPU-5glc1g-3S4g/exec";
-        let mode = 'Income';
-        const cats = {
-            'Income': ['Workshops', 'Sales - Pottery', 'Sales - Embroidery', 'Sales - Hampers', 'Sales - Art', 'Misc/Others'],
-            'Expense': ['Pottery Raw Materials', 'Other Raw Materials', 'Firing Charges', 'Packaging', 'Shipping Fees', 'Marketing', 'Vendor - Payment', 'Misc/Others']
-        };
+    // --- UI TOGGLE ---
+    function updateButtonUI() {
+      const incBtn = document.getElementById('type-inc');
+      const expBtn = document.getElementById('type-exp');
+      if (mode === 'Income') {
+        incBtn.style.background = 'var(--surface)'; incBtn.style.color = 'var(--celadon)'; incBtn.style.boxShadow='0 1px 2px rgba(0,0,0,0.06)';
+        expBtn.style.background = 'transparent'; expBtn.style.color = 'var(--ink-soft)'; expBtn.style.boxShadow='none';
+      } else {
+        expBtn.style.background = 'var(--surface)'; expBtn.style.color = 'var(--oxide)'; expBtn.style.boxShadow='0 1px 2px rgba(0,0,0,0.06)';
+        incBtn.style.background = 'transparent'; incBtn.style.color = 'var(--ink-soft)'; incBtn.style.boxShadow='none';
+      }
+      updateCats();
+    }
 
-        // --- UI TOGGLE ---
-        function updateButtonUI() {
-            const incBtn = document.getElementById('type-inc');
-            const expBtn = document.getElementById('type-exp');
-            if (mode === 'Income') {
-                incBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white shadow-sm";
-                expBtn.className = "flex-1 py-2 text-xs font-bold text-stone-500";
-            } else {
-                expBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white shadow-sm";
-                incBtn.className = "flex-1 py-2 text-xs font-bold text-stone-500";
-            }
-            updateCats();
+    function updateCats() {
+      document.getElementById('category').innerHTML = cats[mode].map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    function populateFilterCategories(){
+      const all = [...new Set([...cats.Income, ...cats.Expense])];
+      document.getElementById('f-category').innerHTML = '<option value="">All Categories</option>' + all.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    // --- PASSWORD TOGGLE ---
+    const passInput = document.getElementById('password-input');
+    document.getElementById('toggle-pass').onclick = () => {
+      const isPass = passInput.type === 'password';
+      passInput.type = isPass ? 'text' : 'password';
+      document.getElementById('toggle-pass').textContent = isPass ? 'HIDE' : 'SHOW';
+    };
+
+    // --- AUTH ---
+    let token = sessionStorage.getItem("ledger_token");
+    if (token) document.getElementById('login-overlay').classList.add('hidden');
+
+    document.getElementById('login-btn').onclick = () => {
+      token = passInput.value;
+      sessionStorage.setItem("ledger_token", token);
+      document.getElementById('login-overlay').classList.add('hidden');
+      loadData();
+    };
+
+    // --- LOAD DATA via JSONP (bypasses CORS) ---
+    function loadData() {
+      const container = document.getElementById('table-container');
+      container.innerHTML = `<div class="rim-card p-8 text-center text-sm font-bold" style="color:var(--ink-soft);">Loading transactions…</div>`;
+
+      const old = document.getElementById('jsonp-loader');
+      if (old) old.remove();
+
+      const callbackName = 'handleLedgerData';
+
+      window[callbackName] = function(data) {
+        delete window[callbackName];
+
+        if (!Array.isArray(data)) {
+          container.innerHTML = `<div class="rim-card p-8 text-center text-sm font-bold" style="color:var(--oxide);">Auth error or no data.</div>`;
+          return;
         }
 
-        function updateCats() {
-            document.getElementById('category').innerHTML = cats[mode].map(c => `<option value="${c}">${c}</option>`).join('');
-        }
+        rawData = data;
+        renderKPIs(rawData);
+        applyFilters();
+      };
 
-        // --- PASSWORD TOGGLE ---
-        const passInput = document.getElementById('password-input');
-        document.getElementById('toggle-pass').onclick = () => {
-            const isPass = passInput.type === 'password';
-            passInput.type = isPass ? 'text' : 'password';
-            document.getElementById('toggle-pass').textContent = isPass ? 'HIDE' : 'SHOW';
-        };
+      const script = document.createElement('script');
+      script.id = 'jsonp-loader';
+      script.onerror = () => {
+        container.innerHTML = `<div class="rim-card p-8 text-center text-sm font-bold" style="color:var(--oxide);">Failed to load. Check connection.</div>`;
+      };
+      script.src = `${API_URL}?token=${encodeURIComponent(token)}&callback=${callbackName}`;
+      document.body.appendChild(script);
+    }
 
-        // --- AUTH ---
-        let token = sessionStorage.getItem("ledger_token");
-        if (token) document.getElementById('login-overlay').classList.add('hidden');
+    // --- KPIs ---
+    function renderKPIs(data){
+      const totalInc = data.filter(d=>d.type==='Income').reduce((s,d)=>s+Number(d.amount),0);
+      const totalExp = data.filter(d=>d.type==='Expense').reduce((s,d)=>s+Number(d.amount),0);
+      const net = totalInc - totalExp;
 
-        document.getElementById('login-btn').onclick = () => {
-            token = passInput.value;
-            sessionStorage.setItem("ledger_token", token);
-            document.getElementById('login-overlay').classList.add('hidden');
-            loadData();
-        };
+      const now = new Date();
+      const thisMonthKey = now.toISOString().slice(0,7);
+      const monthData = data.filter(d => d.date.slice(0,7) === thisMonthKey);
+      const monthNet = monthData.filter(d=>d.type==='Income').reduce((s,d)=>s+Number(d.amount),0) -
+                        monthData.filter(d=>d.type==='Expense').reduce((s,d)=>s+Number(d.amount),0);
 
-        // --- LOAD DATA via JSONP (bypasses CORS) ---
-        function loadData() {
-            const container = document.getElementById('table-container');
-            container.innerHTML = `<div class="p-8 text-center text-stone-400 font-bold text-sm">Loading transactions...</div>`;
+      const cards = [
+        { label: 'Total Income', value: fmt(totalInc), color: 'var(--celadon)' },
+        { label: 'Total Expense', value: fmt(totalExp), color: 'var(--oxide)' },
+        { label: 'Net Profit', value: fmt(net), color: net>=0 ? 'var(--celadon)' : 'var(--oxide)' },
+        { label: 'This Month Net', value: fmt(monthNet), color: monthNet>=0 ? 'var(--slip)' : 'var(--oxide)' }
+      ];
 
-            // Remove any previous JSONP script tag
-            const old = document.getElementById('jsonp-loader');
-            if (old) old.remove();
+      document.getElementById('kpi-row').innerHTML = cards.map(c => `
+        <div class="rim-card glaze-drip p-4">
+          <p class="text-[9px] font-bold uppercase tracking-widest" style="color:var(--ink-soft);">${c.label}</p>
+          <p class="font-mono font-semibold text-lg mt-1" style="color:${c.color};">${c.value}</p>
+        </div>
+      `).join('');
+    }
 
-            const callbackName = 'handleLedgerData';
+    // --- FILTERING ---
+    function applyFilters(){
+      const search = normalize(document.getElementById('f-search').value).toLowerCase();
+      const type = document.getElementById('f-type').value;
+      const category = document.getElementById('f-category').value;
+      const from = document.getElementById('f-from').value;
+      const to = document.getElementById('f-to').value;
 
-            window[callbackName] = function(data) {
-                delete window[callbackName];
+      let filtered = rawData.filter(d => {
+        if (search && !normalize(d.description).toLowerCase().includes(search)) return false;
+        if (type && d.type !== type) return false;
+        if (category && d.category !== category) return false;
+        if (from && d.date < from) return false;
+        if (to && d.date > to) return false;
+        return true;
+      });
 
-                if (!Array.isArray(data)) {
-                    container.innerHTML = `<div class="p-8 text-center text-rose-500 font-bold text-sm">Auth error or no data.</div>`;
-                    return;
-                }
+      renderList(filtered);
+    }
 
-                data.sort((a, b) => new Date(b.date) - new Date(a.date));
+    function renderList(data){
+      const container = document.getElementById('table-container');
+      data = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-                const grouped = data.reduce((acc, d) => {
-                    const m = new Date(d.date).toLocaleString('default', { month: 'long', year: 'numeric' });
-                    if (!acc[m]) acc[m] = [];
-                    acc[m].push(d);
-                    return acc;
-                }, {});
+      const grouped = data.reduce((acc, d) => {
+        const m = new Date(d.date).toLocaleString('default', { month: 'long', year: 'numeric' });
+        if (!acc[m]) acc[m] = [];
+        acc[m].push(d);
+        return acc;
+      }, {});
 
-                if (Object.keys(grouped).length === 0) {
-                    container.innerHTML = `<div class="p-8 text-center text-stone-400 font-bold text-sm">No transactions yet.</div>`;
-                    return;
-                }
+      if (Object.keys(grouped).length === 0) {
+        container.innerHTML = `<div class="rim-card p-8 text-center text-sm font-bold" style="color:var(--ink-soft);">No transactions match your filters.</div>`;
+        return;
+      }
 
-                container.innerHTML = Object.keys(grouped).map((m, i) =>
-                    `<details ${i === 0 ? 'open' : ''} class="group bg-white p-4 rounded-2xl border border-stone-100 shadow-sm">
-                        <summary class="text-[10px] font-bold text-stone-400 uppercase tracking-widest cursor-pointer">${m}</summary>
-                        <div class="space-y-3 mt-4">
-                            ${grouped[m].map(d =>
-                                `<div class="flex justify-between items-center border-t pt-3">
-                                    <div>
-                                        <p class="text-[10px] font-bold text-stone-500 uppercase">${d.date} • ${d.category}</p>
-                                        <p class="text-xs font-semibold">${d.description || 'No comment'}</p>
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <p class="text-sm font-black ${d.type === 'Income' ? 'text-emerald-600' : 'text-rose-600'}">₹${Number(d.amount).toLocaleString()}</p>
-                                        <button onclick='editTransaction(${JSON.stringify(d)})' class="text-[10px] bg-stone-100 px-2 py-1 rounded">Edit</button>
-                                    </div>
-                                </div>`
-                            ).join('')}
-                        </div>
-                    </details>`
-                ).join('');
-            };
+      container.innerHTML = Object.keys(grouped).map((m, i) => {
+        const monthInc = grouped[m].filter(d=>d.type==='Income').reduce((s,d)=>s+Number(d.amount),0);
+        const monthExp = grouped[m].filter(d=>d.type==='Expense').reduce((s,d)=>s+Number(d.amount),0);
+        return `<details ${i === 0 ? 'open' : ''} class="rim-card p-4">
+          <summary class="text-[10px] font-bold uppercase tracking-widest cursor-pointer flex justify-between items-center" style="color:var(--ink-soft);">
+            <span>${m}</span>
+            <span class="font-mono normal-case tracking-normal">${fmt(monthInc)} <span style="color:var(--oxide);">− ${fmt(monthExp)}</span></span>
+          </summary>
+          <div class="space-y-3 mt-4">
+            ${grouped[m].map(d =>
+              `<div class="flex justify-between items-center pt-3" style="border-top:1px solid var(--line);">
+                <div>
+                  <p class="text-[10px] font-bold uppercase" style="color:var(--ink-soft);">${d.date} • ${d.category}</p>
+                  <p class="text-xs font-semibold">${d.description || 'No comment'}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <p class="text-sm font-mono font-bold" style="color:${d.type === 'Income' ? 'var(--celadon)' : 'var(--oxide)'};">₹${Number(d.amount).toLocaleString('en-IN')}</p>
+                  <button onclick='editTransaction(${JSON.stringify(d)})' class="text-[10px] px-2 py-1 rounded" style="background:var(--slip-soft); color:var(--slip);">Edit</button>
+                  <button onclick='deleteTransaction(${d.originalIndex})' class="text-[10px] px-2 py-1 rounded" style="background:var(--oxide-soft); color:var(--oxide);">Delete</button>
+                </div>
+              </div>`
+            ).join('')}
+          </div>
+        </details>`;
+      }).join('');
+    }
 
-            const script = document.createElement('script');
-            script.id = 'jsonp-loader';
-            script.onerror = () => {
-                container.innerHTML = `<div class="p-8 text-center text-rose-500 font-bold text-sm">Failed to load. Check connection.</div>`;
-            };
-            script.src = `${API_URL}?token=${encodeURIComponent(token)}&callback=${callbackName}`;
-            document.body.appendChild(script);
-        }
+    ['f-search','f-type','f-category','f-from','f-to'].forEach(id => {
+      document.getElementById(id).addEventListener('input', applyFilters);
+    });
+    document.getElementById('f-clear').onclick = () => {
+      document.getElementById('f-search').value = '';
+      document.getElementById('f-type').value = '';
+      document.getElementById('f-category').value = '';
+      document.getElementById('f-from').value = '';
+      document.getElementById('f-to').value = '';
+      applyFilters();
+    };
 
-        // --- EDIT ---
-        function editTransaction(d) {
-            document.getElementById('edit-index').value = d.originalIndex;
-            document.getElementById('date').value = d.date;
-            document.getElementById('description').value = d.description;
-            document.getElementById('amount').value = d.amount;
-            mode = d.type;
-            updateButtonUI();
-            document.getElementById('category').value = d.category;
-            document.getElementById('submit-btn').textContent = "Update Transaction";
-            window.scrollTo(0, 0);
-        }
+    // --- EXPORT CSV ---
+    document.getElementById('export-csv').onclick = () => {
+      const search = normalize(document.getElementById('f-search').value).toLowerCase();
+      const type = document.getElementById('f-type').value;
+      const category = document.getElementById('f-category').value;
+      const from = document.getElementById('f-from').value;
+      const to = document.getElementById('f-to').value;
 
-        // --- SUBMIT via no-cors POST (avoids preflight) ---
-        document.getElementById('tx-form').onsubmit = async (e) => {
-            e.preventDefault();
-            const submitBtn = document.getElementById('submit-btn');
-            submitBtn.textContent = "Saving...";
-            submitBtn.disabled = true;
+      let filtered = rawData.filter(d => {
+        if (search && !normalize(d.description).toLowerCase().includes(search)) return false;
+        if (type && d.type !== type) return false;
+        if (category && d.category !== category) return false;
+        if (from && d.date < from) return false;
+        if (to && d.date > to) return false;
+        return true;
+      });
 
-            const payload = {
-                token: token,
-                action: document.getElementById('edit-index').value !== '' ? 'edit' : 'add',
-                index: document.getElementById('edit-index').value,
-                date: document.getElementById('date').value,
-                type: mode,
-                category: document.getElementById('category').value,
-                description: document.getElementById('description').value,
-                amount: document.getElementById('amount').value
-            };
+      const header = ['Date','Type','Category','Description','Amount'];
+      const rows = filtered.map(d => [d.date, d.type, d.category, `"${(d.description||'').replace(/"/g,'""')}"`, d.amount]);
+      const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `mitti-ledger-${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+    };
 
-            try {
-                // no-cors: response is opaque but the POST reaches GAS fine
-                await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify(payload)
-                    // NOTE: Do NOT set Content-Type header — that triggers a preflight
-                });
-            } catch (err) {
-                // no-cors fetch may throw on network error; ignore opaque-response "errors"
-            }
+    // --- EDIT ---
+    function editTransaction(d) {
+      document.getElementById('edit-index').value = d.originalIndex;
+      document.getElementById('date').value = d.date;
+      document.getElementById('description').value = d.description;
+      document.getElementById('amount').value = d.amount;
+      mode = d.type;
+      updateButtonUI();
+      document.getElementById('category').value = d.category;
+      document.getElementById('submit-btn').textContent = "Update Transaction";
+      window.scrollTo(0, 0);
+    }
 
-            alert("Saved! Refreshing...");
-            submitBtn.textContent = "Save Transaction";
-            submitBtn.disabled = false;
-            document.getElementById('tx-form').reset();
-            document.getElementById('edit-index').value = "";
-            document.getElementById('date').valueAsDate = new Date();
-            updateButtonUI();
-            // Small delay so GAS has time to write before we re-fetch
-            setTimeout(loadData, 1500);
-        };
+    // --- DELETE ---
+    function deleteTransaction(index) {
+      if (!confirm('Delete this transaction? This cannot be undone.')) return;
 
-        document.getElementById('type-inc').onclick = () => { mode = 'Income'; updateButtonUI(); };
-        document.getElementById('type-exp').onclick = () => { mode = 'Expense'; updateButtonUI(); };
+      fetch(API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify({ token, action: 'delete', index })
+      }).catch(() => {});
 
-        document.getElementById('date').valueAsDate = new Date();
-        updateButtonUI();
-        if (token) loadData();
-    </script>
+      setTimeout(loadData, 1200);
+    }
+
+    // --- SUBMIT via no-cors POST (avoids preflight) ---
+    document.getElementById('tx-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.textContent = "Saving...";
+      submitBtn.disabled = true;
+
+      const payload = {
+        token: token,
+        action: document.getElementById('edit-index').value !== '' ? 'edit' : 'add',
+        index: document.getElementById('edit-index').value,
+        date: document.getElementById('date').value,
+        type: mode,
+        category: document.getElementById('category').value,
+        description: document.getElementById('description').value,
+        amount: document.getElementById('amount').value
+      };
+
+      try {
+        await fetch(API_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {}
+
+      submitBtn.textContent = "Save Transaction";
+      submitBtn.disabled = false;
+      document.getElementById('tx-form').reset();
+      document.getElementById('edit-index').value = "";
+      document.getElementById('date').valueAsDate = new Date();
+      updateButtonUI();
+      setTimeout(loadData, 1500);
+    };
+
+    document.getElementById('type-inc').onclick = () => { mode = 'Income'; updateButtonUI(); };
+    document.getElementById('type-exp').onclick = () => { mode = 'Expense'; updateButtonUI(); };
+
+    document.getElementById('date').valueAsDate = new Date();
+    populateFilterCategories();
+    updateButtonUI();
+    if (token) loadData();
+  </script>
 </body>
 </html>
